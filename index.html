@@ -1,0 +1,4279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<!-- ВАЖНО: Яндекс Диск отдаёт 403 на прямые ссылки, если запрос пришёл с чужим Referer
+     (например, с https://user.github.io/...). Политика no-referrer обязательна,
+     иначе аудио и обложки не загружаются на хостингах вроде GitHub Pages. -->
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0f1115">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Аудиотека">
+<meta name="application-name" content="Аудиотека">
+<meta name="description" content="Каталог аудиокниг с Яндекс Диска: обложки, описания, удобный плеер с перемоткой и продолжением с места остановки.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Аудиотека — каталог аудиокниг</title>
+<style>
+  :root{
+    --bg:#0f1115; --bg2:#14171f; --card:#1a1e28; --card2:#202633;
+    --line:#2a3040; --text:#f2f4f8; --muted:#9aa3b5; --muted2:#6b7488;
+    --accent:#fc3f1d; --accent2:#ff7a3d; --accent-soft:rgba(252,63,29,.14);
+    --green:#2ecc71; --yellow:#ffdb4d; --blue:#4da3ff;
+    --radius:18px; --radius-sm:12px;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(900px 520px at 15% -10%, rgba(252,63,29,.16), transparent 60%),
+      radial-gradient(820px 520px at 90% 0%, rgba(77,163,255,.11), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:var(--blue)}
+  button{font-family:inherit; cursor:pointer}
+  input,select{font-family:inherit}
+  .app{max-width:1040px; margin:0 auto; padding:20px 16px 64px}
+  .player-shell{max-width:880px; margin:0 auto}
+
+  /* Header */
+  header.top{
+    display:flex; gap:14px; align-items:center; padding:8px 2px 18px; flex-wrap:wrap;
+  }
+  .brand{
+    display:flex; gap:14px; align-items:center; text-decoration:none; color:inherit;
+    cursor:pointer; min-width:0; flex:1 1 260px;
+  }
+  .logo{
+    width:50px; height:50px; border-radius:16px; flex:0 0 auto;
+    background:linear-gradient(135deg,#fc3f1d,#ff7a3d);
+    display:grid; place-items:center; box-shadow:0 8px 24px rgba(252,63,29,.35);
+  }
+  .logo svg{width:26px; height:26px; fill:#fff}
+  header.top h1{font-size:21px; margin:0; letter-spacing:-.02em}
+  header.top p{margin:2px 0 0; color:var(--muted); font-size:13.5px}
+  .header-actions{
+    display:flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:wrap;
+  }
+  .now-playing-pill{
+    display:inline-flex; align-items:center; gap:8px; max-width:260px;
+    background:var(--accent-soft); color:#ffd2c5; border:1px solid rgba(252,63,29,.42);
+    border-radius:999px; padding:8px 13px; font-size:13px; font-weight:700;
+    transition:filter .15s ease, transform .08s ease;
+  }
+  .now-playing-pill:hover{filter:brightness(1.1)}
+  .now-playing-pill:active{transform:scale(.98)}
+  .now-playing-pill .np-dot{
+    width:8px; height:8px; border-radius:50%; background:var(--accent); flex:0 0 auto;
+    box-shadow:0 0 0 3px rgba(252,63,29,.25);
+  }
+  .now-playing-pill.playing .np-dot{
+    background:var(--green); box-shadow:0 0 0 3px rgba(46,204,113,.25);
+    animation:pulseDot 1.6s ease-in-out infinite;
+  }
+  .now-playing-pill .np-text{
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  @keyframes pulseDot{
+    0%,100%{transform:scale(1); opacity:1}
+    50%{transform:scale(1.28); opacity:.75}
+  }
+
+  /* Cards & Buttons */
+  .card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:20px; margin-bottom:16px;
+  }
+  .card h2{margin:0 0 6px; font-size:18px}
+  .card .sub{color:var(--muted); font-size:14px; margin:0 0 14px}
+  .btn{
+    border:1px solid var(--line); background:var(--card2); color:var(--text);
+    border-radius:var(--radius-sm); padding:11px 16px; font-size:14.5px; font-weight:700;
+    display:inline-flex; align-items:center; gap:8px; justify-content:center;
+    transition:transform .08s ease, background .15s ease, border-color .15s ease, filter .15s ease;
+  }
+  .btn:hover{background:#262d3d}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:linear-gradient(135deg,#fc3f1d,#ff7a3d); border-color:transparent; color:#fff; box-shadow:0 6px 20px rgba(252,63,29,.28)}
+  .btn-primary:hover{filter:brightness(1.08); background:linear-gradient(135deg,#fc3f1d,#ff7a3d)}
+  .btn-ghost{background:transparent}
+  .btn-sm{padding:8px 12px; font-size:13px; border-radius:10px}
+  .btn-lg{padding:14px 24px; font-size:16px; border-radius:14px}
+  .btn:disabled{opacity:.55; cursor:not-allowed}
+
+  .status{
+    margin-top:12px; border-radius:var(--radius-sm); padding:12px 14px; font-size:14px;
+    display:none; align-items:flex-start; gap:10px; border:1px solid var(--line); background:#0d1017;
+  }
+  .status.show{display:flex}
+  .status.error{border-color:rgba(255,90,90,.5); background:rgba(255,60,60,.08)}
+  .status.ok{border-color:rgba(46,204,113,.4); background:rgba(46,204,113,.08)}
+  .spinner{
+    width:18px; height:18px; flex:0 0 auto; margin-top:2px;
+    border:2px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* View Navigation Bar */
+  .view-nav{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+  }
+  .breadcrumbs{
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    color:var(--muted); font-size:13.5px; min-width:0;
+  }
+  .breadcrumbs button{
+    background:none; border:none; color:var(--muted); padding:4px 6px; border-radius:8px;
+    font-size:13.5px; font-weight:600;
+  }
+  .breadcrumbs button:hover{color:var(--text); background:rgba(255,255,255,.06)}
+  .breadcrumbs .bc-current{color:var(--text); font-weight:700; padding:4px 6px}
+  .breadcrumbs .bc-sep{color:var(--muted2)}
+
+  /* Catalog: Continue Shelf */
+  .shelf-card{
+    background:linear-gradient(135deg, rgba(252,63,29,.10), rgba(20,23,31,.96) 55%);
+    border-color:rgba(252,63,29,.30);
+    padding:16px 18px;
+  }
+  .shelf-head{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+  .shelf-head h2{margin:0; font-size:16px}
+  .shelf-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(270px, 1fr)); gap:10px;
+  }
+  .shelf-item{
+    display:flex; gap:12px; align-items:center; padding:10px;
+    background:rgba(13,16,23,.72); border:1px solid var(--line); border-radius:14px;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .shelf-item:hover{border-color:rgba(252,63,29,.55); background:rgba(26,30,40,.9)}
+  .shelf-thumb{
+    width:54px; height:54px; border-radius:10px; flex:0 0 auto; overflow:hidden;
+    background:linear-gradient(135deg,#272e3f,#161a24); border:1px solid var(--line);
+    display:grid; place-items:center; font-size:22px;
+  }
+  .shelf-thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .shelf-info{flex:1; min-width:0}
+  .shelf-title{font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .shelf-meta{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px}
+  .shelf-play{
+    width:38px; height:38px; border-radius:50%; border:none; flex:0 0 auto;
+    background:linear-gradient(135deg,#fc3f1d,#ff7a3d); color:#fff;
+    display:grid; place-items:center; box-shadow:0 4px 12px rgba(252,63,29,.35);
+  }
+  .shelf-play svg{width:18px; height:18px; fill:currentColor}
+
+  /* Catalog Toolbar */
+  .catalog-toolbar{
+    padding:14px 16px;
+  }
+  .toolbar-top{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .search-box{
+    position:relative; flex:1 1 260px; min-width:0;
+  }
+  .search-box svg{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    width:17px; height:17px; fill:var(--muted2); pointer-events:none;
+  }
+  .search-box input{
+    width:100%; background:#0d1017; border:1px solid var(--line); color:var(--text);
+    border-radius:var(--radius-sm); padding:10px 36px 10px 38px; font-size:14.5px; outline:none;
+  }
+  .search-box input:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  .search-clear{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    width:26px; height:26px; border-radius:50%; border:none;
+    background:rgba(255,255,255,.08); color:var(--muted); display:grid; place-items:center;
+    font-size:13px;
+  }
+  .search-clear:hover{color:#fff; background:rgba(255,255,255,.15)}
+  .view-toggle{
+    display:inline-flex; background:#0d1017; border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:3px; gap:3px;
+  }
+  .view-toggle button{
+    border:none; background:transparent; color:var(--muted); border-radius:9px;
+    padding:7px 11px; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:6px;
+  }
+  .view-toggle button.active{background:var(--card2); color:#fff}
+  .view-toggle svg{width:15px; height:15px; fill:currentColor}
+  .toolbar-filters{
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px;
+  }
+  .chip{
+    border:1px solid var(--line); background:#0d1017; color:var(--muted);
+    border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600;
+    transition:all .15s ease;
+  }
+  .chip:hover{color:var(--text); border-color:#3b445b}
+  .chip.active{
+    background:var(--accent-soft); color:#ffd2c5; border-color:rgba(252,63,29,.55);
+  }
+  .chip.cat-chip.active{
+    background:rgba(77,163,255,.14); color:#b9d9ff; border-color:rgba(77,163,255,.5);
+  }
+  .catalog-stats{
+    margin-left:auto; font-size:12.5px; color:var(--muted2);
+  }
+
+  /* Catalog Sections & Grid */
+  .catalog-section{margin-bottom:24px}
+  .catalog-section.collapsed{
+    margin-bottom:10px;
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:14px; padding:10px 14px;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .catalog-section.collapsed:hover{border-color:rgba(252,63,29,.45)}
+  .section-head{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin:4px 2px 12px; padding-bottom:8px; border-bottom:1px solid var(--line);
+  }
+  .section-head.collapsible{cursor:pointer; user-select:none}
+  .catalog-section.collapsed .section-head{
+    margin:0; padding-bottom:0; border-bottom:none;
+  }
+  .section-head h3{margin:0; font-size:17px; display:flex; align-items:center; gap:8px}
+  .section-count{
+    font-size:12px; font-weight:700; color:var(--muted);
+    background:rgba(255,255,255,.06); border:1px solid var(--line);
+    border-radius:999px; padding:2px 9px;
+  }
+  .section-actions{margin-left:auto; display:flex; gap:8px; align-items:center}
+  .book-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(215px, 1fr)); gap:16px;
+  }
+  .book-card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:16px; overflow:hidden;
+    box-shadow:0 6px 22px rgba(0,0,0,.28);
+    display:flex; flex-direction:column; cursor:pointer;
+    transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+  .book-card:hover{
+    transform:translateY(-3px); border-color:rgba(252,63,29,.55);
+    box-shadow:0 14px 32px rgba(0,0,0,.42);
+  }
+  .book-card:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .book-cover-wrap{
+    position:relative; aspect-ratio:1 / 1; width:100%; overflow:hidden;
+    background:radial-gradient(circle at 30% 25%, #2a3142, #12151d 75%);
+    border-bottom:1px solid var(--line);
+  }
+  .book-cover-wrap img{
+    position:relative; z-index:2; width:100%; height:100%; object-fit:cover; display:block;
+    opacity:0; transition:opacity .25s ease, transform .35s ease;
+  }
+  .book-cover-wrap img.loaded{opacity:1}
+  .book-card:hover .book-cover-wrap img.loaded{transform:scale(1.03)}
+  .book-cover-fallback{
+    position:absolute; inset:0; z-index:1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:16px; text-align:center; gap:8px;
+    background:radial-gradient(circle at 25% 20%, rgba(252,63,29,.16), transparent 60%),
+               radial-gradient(circle at 80% 85%, rgba(77,163,255,.14), transparent 60%),
+               #141822;
+  }
+  .book-cover-fallback svg{width:42px; height:42px; fill:var(--muted2); opacity:.75}
+  .book-cover-fallback span{
+    font-size:12.5px; color:var(--muted); font-weight:600;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .cover-scrim{
+    position:absolute; inset:auto 0 0 0; height:52%; z-index:3; pointer-events:none;
+    background:linear-gradient(to top, rgba(12,14,19,.85), transparent);
+  }
+  .cover-badge-tr{
+    position:absolute; top:9px; right:9px; z-index:4;
+    background:rgba(15,17,21,.82); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.12); border-radius:999px;
+    padding:3px 9px; font-size:11.5px; font-weight:700; color:#e6ebf5;
+  }
+  .cover-badge-bl{
+    position:absolute; bottom:10px; left:9px; z-index:4;
+    border-radius:999px; padding:3px 9px; font-size:11.5px; font-weight:700;
+    background:rgba(255,219,77,.18); border:1px solid rgba(255,219,77,.5); color:#ffe98a;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .cover-badge-bl.done{
+    background:rgba(46,204,113,.2); border-color:rgba(46,204,113,.5); color:#a7f3c6;
+  }
+  .cover-progress{
+    position:absolute; left:0; right:0; bottom:0; height:4px; z-index:5;
+    background:rgba(255,255,255,.12);
+  }
+  .cover-progress > div{
+    height:100%; background:linear-gradient(90deg,#fc3f1d,#ff7a3d); width:0%;
+  }
+  .book-card-body{
+    padding:13px 14px 14px; display:flex; flex-direction:column; gap:6px; flex:1;
+  }
+  .book-card-title{
+    font-weight:700; font-size:15px; line-height:1.3;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .book-card-desc{
+    font-size:12.8px; color:var(--muted); line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .book-card-desc.loading-text{color:var(--muted2); font-style:italic}
+  .book-card-sublinks{
+    display:flex; flex-wrap:wrap; gap:5px; margin-top:auto; padding-top:4px;
+  }
+  .sublink-pill{
+    font-size:11.5px; font-weight:600; color:#b9d9ff;
+    background:rgba(77,163,255,.1); border:1px solid rgba(77,163,255,.28);
+    border-radius:8px; padding:3px 8px; max-width:100%;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .sublink-pill:hover{background:rgba(77,163,255,.2)}
+
+  /* List Mode */
+  .book-grid.list-mode{grid-template-columns:1fr; gap:10px}
+  .book-grid.list-mode .book-card{flex-direction:row; align-items:stretch}
+  .book-grid.list-mode .book-cover-wrap{
+    width:110px; min-width:110px; aspect-ratio:1 / 1; border-bottom:none; border-right:1px solid var(--line);
+  }
+  .book-grid.list-mode .book-cover-fallback svg{width:30px; height:30px}
+  .book-grid.list-mode .book-cover-fallback span{display:none}
+  .book-grid.list-mode .cover-badge-tr{top:6px; right:6px; font-size:10.5px; padding:2px 7px}
+  .book-grid.list-mode .cover-badge-bl{bottom:7px; left:6px; font-size:10.5px; padding:2px 7px}
+  .book-grid.list-mode .book-card-body{padding:12px 14px; justify-content:center}
+  .book-grid.list-mode .book-card-desc{-webkit-line-clamp:3}
+
+  /* Book Detail View */
+  .book-hero{
+    position:relative; overflow:hidden; padding:24px;
+  }
+  .book-hero-bg{
+    position:absolute; inset:-30px; background-size:cover; background-position:center;
+    filter:blur(42px) saturate(1.3); opacity:.18; pointer-events:none; transform:scale(1.1);
+  }
+  .book-hero-inner{
+    position:relative; z-index:1; display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;
+  }
+  .book-hero-cover{
+    width:240px; flex:0 0 auto; aspect-ratio:1 / 1; border-radius:16px; overflow:hidden;
+    background:radial-gradient(circle at 30% 25%, #2a3142, #10131a 75%);
+    border:1px solid rgba(255,255,255,.12); box-shadow:0 16px 36px rgba(0,0,0,.48);
+    display:grid; place-items:center; position:relative;
+  }
+  .book-hero-cover img{
+    width:100%; height:100%; object-fit:contain; display:block; background:rgba(12,14,19,.55);
+  }
+  .book-hero-cover .hero-fallback{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    padding:20px; text-align:center; color:var(--muted);
+  }
+  .book-hero-cover .hero-fallback svg{width:56px; height:56px; fill:var(--muted2)}
+  .book-hero-info{flex:1 1 300px; min-width:0}
+  .book-tag{
+    display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;
+    color:#b9d9ff; background:rgba(77,163,255,.12); border:1px solid rgba(77,163,255,.3);
+    border-radius:999px; padding:4px 11px; margin-bottom:10px;
+  }
+  .book-hero-info h2{font-size:24px; line-height:1.25; margin:0 0 10px; letter-spacing:-.02em}
+  .book-meta-pills{
+    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;
+  }
+  .meta-pill{
+    display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted);
+    background:rgba(13,16,23,.75); border:1px solid var(--line); border-radius:999px;
+    padding:5px 12px;
+  }
+  .meta-pill.resume{
+    color:#ffe98a; border-color:rgba(255,219,77,.45); background:rgba(255,219,77,.1);
+  }
+  .meta-pill.done{
+    color:#a7f3c6; border-color:rgba(46,204,113,.45); background:rgba(46,204,113,.1);
+  }
+  .book-actions{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px;
+  }
+  .book-desc-text{
+    white-space:pre-wrap; font-size:15px; line-height:1.68; color:#d8dfec;
+    word-break:break-word;
+  }
+  .book-desc-text.empty-desc{color:var(--muted2); font-style:italic}
+
+  /* Player (preserved & refined) */
+  .track-head{display:flex; gap:14px; align-items:flex-start}
+  .cover{
+    width:68px; height:68px; border-radius:16px; flex:0 0 auto; overflow:hidden;
+    background:linear-gradient(135deg,#2a3040,#1a1e28);
+    border:1px solid var(--line); display:grid; place-items:center; font-size:30px;
+  }
+  .cover img{width:100%; height:100%; object-fit:cover; display:block}
+  .track-head h3{margin:0; font-size:18px; line-height:1.3; word-break:break-word}
+  .track-meta{color:var(--muted); font-size:13px; margin:4px 0 0; word-break:break-word}
+  .track-actions{margin-left:auto; display:flex; gap:8px; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end}
+  .resume-banner{
+    display:none; margin-top:12px; align-items:center; gap:10px; flex-wrap:wrap;
+    background:rgba(255,219,77,.1); border:1px solid rgba(255,219,77,.4);
+    color:#ffe98a; border-radius:var(--radius-sm); padding:10px 12px; font-size:14px;
+  }
+  .resume-banner.show{display:flex}
+  .progress-wrap{margin-top:18px}
+  .seekbar{
+    position:relative; height:28px; display:flex; align-items:center; cursor:pointer;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  .seekbar .track{position:relative; height:8px; flex:1; background:#2a3040; border-radius:999px; overflow:hidden}
+  .seekbar .buffered{position:absolute; left:0; top:0; bottom:0; background:#3d465e; border-radius:999px; width:0%}
+  .seekbar .played{
+    position:absolute; left:0; top:0; bottom:0; width:0%;
+    background:linear-gradient(90deg,#fc3f1d,#ff7a3d); border-radius:999px;
+  }
+  .seekbar .handle{
+    position:absolute; top:50%; width:18px; height:18px; border-radius:50%;
+    background:#fff; border:3px solid #fc3f1d; transform:translate(-50%,-50%);
+    box-shadow:0 2px 8px rgba(0,0,0,.5); left:0%; pointer-events:none;
+  }
+  .seekbar:focus-visible{outline:2px solid var(--accent); outline-offset:4px; border-radius:8px}
+  .time-row{display:flex; justify-content:space-between; color:var(--muted); font-size:13.5px; font-variant-numeric:tabular-nums; margin-top:2px}
+  .time-row button{background:none; border:none; color:var(--muted); font-size:13.5px; padding:2px 4px; border-radius:6px}
+  .time-row button:hover{color:#fff; background:rgba(255,255,255,.06)}
+  .controls{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; flex-wrap:wrap}
+  .ctl{
+    width:52px; height:52px; border-radius:50%; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); display:grid; place-items:center; position:relative;
+    font-weight:800; font-size:12px;
+  }
+  .ctl:hover{background:#262d3d}
+  .ctl:active{transform:scale(.96)}
+  .ctl svg{width:24px; height:24px; fill:currentColor}
+  .ctl .ctl-label{position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--muted2); font-weight:600; white-space:nowrap}
+  .ctl-main{width:72px; height:72px; background:linear-gradient(135deg,#fc3f1d,#ff7a3d); border-color:transparent; box-shadow:0 10px 28px rgba(252,63,29,.4)}
+  .ctl-main svg{width:34px; height:34px}
+  .controls2{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:26px}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px; background:#0d1017; border:1px solid var(--line);
+    border-radius:999px; padding:8px 12px; font-size:14px;
+  }
+  .pill select{background:transparent; border:none; color:var(--text); font-size:14px; font-weight:700; outline:none}
+  .pill select option{background:#1a1e28}
+  .pill input[type="range"]{width:110px; accent-color:#fc3f1d}
+  .pill button{background:none; border:none; color:var(--text); font-weight:700; font-size:14px; padding:2px 4px}
+  .pill svg{width:20px; height:20px; fill:currentColor}
+  .pill .pill-text{display:none; font-weight:700; font-size:14px}
+  .pill-preamp{gap:8px}
+  .pill-preamp .preamp-caption{font-size:13px; color:var(--muted); font-weight:700}
+  .pill-preamp input[type="range"]{width:104px}
+  .pill-preamp .preamp-value{
+    font-size:13px; font-weight:800; font-variant-numeric:tabular-nums;
+    color:#fff; min-width:44px; text-align:right;
+  }
+  .pill-preamp.boosted{border-color:rgba(252,63,29,.55); background:rgba(252,63,29,.10)}
+  .pill-preamp.boosted .preamp-value{color:#ffb59f}
+  .pill-preamp .preamp-reset{
+    background:none; border:none; color:var(--muted); font-size:15px; font-weight:700;
+    padding:0 2px; line-height:1;
+  }
+  .pill-preamp .preamp-reset:hover{color:#fff}
+  .jump-row{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+  .jump-row input{
+    flex:1 1 180px; background:#0d1017; border:1px solid var(--line); color:var(--text);
+    border-radius:var(--radius-sm); padding:11px 12px; font-size:14px; outline:none;
+  }
+  .jump-row input:focus{border-color:var(--accent)}
+  .bookmarks{margin-top:14px}
+  .bookmarks h4{margin:0 0 8px; font-size:14px; color:var(--muted)}
+  .bm-list{display:flex; flex-wrap:wrap; gap:8px}
+  .bm{
+    display:inline-flex; align-items:center; gap:8px; background:rgba(77,163,255,.1);
+    border:1px solid rgba(77,163,255,.3); border-radius:999px; padding:6px 8px 6px 12px; font-size:13px;
+  }
+  .bm button{border:none; background:rgba(255,255,255,.08); color:#fff; border-radius:999px; padding:4px 10px; font-weight:700}
+  .bm .del{background:none; color:var(--muted); padding:4px 6px}
+  .bm .del:hover{color:#ff8a8a}
+  .empty{color:var(--muted2); font-size:13.5px}
+
+  /* History & Playlist */
+  .history-item{
+    display:flex; gap:12px; align-items:center; padding:12px; border:1px solid var(--line);
+    border-radius:var(--radius-sm); background:rgba(255,255,255,.02); margin-bottom:10px;
+  }
+  .history-item.current{border-color:rgba(252,63,29,.6); background:var(--accent-soft)}
+  .history-item .info{flex:1; min-width:0}
+  .history-item .title{font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .history-item .meta{color:var(--muted); font-size:12.5px; margin-top:2px}
+  .mini-progress{height:6px; background:#2a3040; border-radius:999px; overflow:hidden; margin-top:8px}
+  .mini-progress > div{height:100%; background:linear-gradient(90deg,#fc3f1d,#ff7a3d); width:0%}
+  .history-item .actions{display:flex; gap:6px; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end}
+  .icon-btn{
+    width:38px; height:38px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); display:grid; place-items:center;
+  }
+  .icon-btn:hover{background:#262d3d}
+  .icon-btn svg{width:18px; height:18px; fill:currentColor}
+  .icon-btn.danger:hover{border-color:rgba(255,90,90,.6); color:#ff8a8a}
+  .settings-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:14px}
+  .check{display:inline-flex; gap:8px; align-items:center; font-size:14px; color:var(--muted); cursor:pointer}
+  .check input{width:18px; height:18px; accent-color:#fc3f1d}
+  .ctl:disabled{opacity:.35; cursor:not-allowed}
+
+  .folder-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .folder-head h2{margin:0}
+  .folder-count{color:var(--muted); font-size:13px}
+  .folder-head .spacer{flex:1}
+  .playlist-item{
+    display:flex; gap:12px; align-items:center; padding:10px 12px;
+    border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:rgba(255,255,255,.02); margin-bottom:8px; cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .playlist-item:hover{background:rgba(255,255,255,.05); border-color:#3a4358}
+  .playlist-item.current{border-color:rgba(252,63,29,.6); background:var(--accent-soft)}
+  .playlist-item .num{
+    flex:0 0 auto; width:30px; height:30px; border-radius:50%;
+    background:#0d1017; border:1px solid var(--line);
+    display:grid; place-items:center; font-size:13px; font-weight:800; color:var(--muted);
+  }
+  .playlist-item.current .num{background:linear-gradient(135deg,#fc3f1d,#ff7a3d); color:#fff; border-color:transparent}
+  .playlist-item .info{flex:1; min-width:0}
+  .playlist-item .title{font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .playlist-item .meta{color:var(--muted); font-size:12.5px; margin-top:2px}
+
+  /* Help Modal Popup */
+  .modal{
+    position:fixed; inset:0; z-index:80;
+    display:none; align-items:center; justify-content:center; padding:16px;
+  }
+  .modal.open{display:flex}
+  .modal-backdrop{
+    position:absolute; inset:0; background:rgba(8,10,14,.74);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    animation:fadeIn .18s ease;
+  }
+  .modal-dialog{
+    position:relative; z-index:1; width:100%; max-width:780px; max-height:min(88vh, 820px);
+    display:flex; flex-direction:column;
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:20px; box-shadow:0 24px 60px rgba(0,0,0,.6);
+    overflow:hidden; animation:popIn .2s ease;
+  }
+  @keyframes fadeIn{from{opacity:0} to{opacity:1}}
+  @keyframes popIn{from{opacity:0; transform:translateY(14px) scale(.98)} to{opacity:1; transform:translateY(0) scale(1)}}
+  .modal-header{
+    display:flex; align-items:center; gap:12px; padding:16px 20px;
+    border-bottom:1px solid var(--line); background:rgba(13,16,23,.5);
+  }
+  .modal-header h2{margin:0; font-size:18px}
+  .modal-close{
+    margin-left:auto; width:36px; height:36px; border-radius:10px;
+    border:1px solid var(--line); background:var(--card2); color:var(--text);
+    display:grid; place-items:center; font-size:16px; font-weight:700;
+  }
+  .modal-close:hover{background:#2b3346}
+  .modal-body{
+    padding:20px; overflow-y:auto; overscroll-behavior:contain;
+  }
+  .help-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  .help-grid h3{margin:0 0 8px; font-size:15px}
+  .help-grid p, .help-grid li{font-size:13.5px; color:var(--muted)}
+  .help-grid ul{margin:0; padding-left:18px}
+  .help-grid li{margin:4px 0}
+  kbd{
+    background:#0d1017; border:1px solid var(--line); border-bottom-width:2px; border-radius:6px;
+    padding:1px 7px; font-size:12px; font-family:ui-monospace,monospace; color:#fff;
+  }
+  .install-row{display:none; gap:10px; align-items:center; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+  .install-row.show{display:flex}
+  .install-row .text{font-size:13px; color:var(--muted)}
+
+  footer{
+    color:var(--muted2); font-size:12.5px; text-align:center; padding:14px 4px;
+    display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap;
+  }
+  .footer-help-link{
+    background:none; border:1px solid var(--line); color:var(--muted);
+    border-radius:999px; padding:4px 12px; font-size:12.5px; font-weight:600;
+  }
+  .footer-help-link:hover{color:var(--text); border-color:var(--muted)}
+
+  #toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:#232938; color:#fff; border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; font-size:14px; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:all .25s ease; max-width:min(92vw,520px); z-index:90; text-align:center;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  #toast.error{border-color:rgba(255,90,90,.6)}
+  .hidden{display:none !important}
+  .sleep-active{border-color:rgba(255,219,77,.6) !important; color:#ffe98a !important}
+  body.dialog-open{overflow:hidden}
+
+  /* Mini-player */
+  #miniPlayer{
+    display:none; position:fixed; left:0; right:0; bottom:0; z-index:40;
+    background:rgba(20,23,31,.96); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 24px rgba(0,0,0,.45);
+    transform:translateY(110%); transition:transform .22s ease;
+  }
+  #miniPlayer.show{display:block; transform:translateY(0)}
+  #miniPlayer .mp-progress{height:3px; background:#2a3040; border-radius:999px; overflow:hidden; margin-bottom:8px}
+  #miniPlayer .mp-progress > div{height:100%; width:0%; background:linear-gradient(90deg,#fc3f1d,#ff7a3d)}
+  #miniPlayer .mp-row{display:flex; align-items:center; gap:10px}
+  #miniPlayer .mp-thumb{
+    width:40px; height:40px; border-radius:9px; overflow:hidden; flex:0 0 auto;
+    background:#1a1e28; border:1px solid var(--line); display:grid; place-items:center; font-size:18px;
+  }
+  #miniPlayer .mp-thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  #miniPlayer .mp-info{flex:1; min-width:0; cursor:pointer}
+  #miniPlayer .mp-title{font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  #miniPlayer .mp-meta{font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  #miniPlayer .mp-btn{
+    width:44px; height:44px; flex:0 0 auto; border-radius:50%; border:none;
+    background:rgba(255,255,255,.08); color:#fff; display:grid; place-items:center;
+  }
+  #miniPlayer .mp-btn:active{transform:scale(.94)}
+  #miniPlayer .mp-btn:disabled{opacity:.35}
+  #miniPlayer .mp-btn svg{width:22px; height:22px; fill:currentColor}
+  #miniPlayer .mp-play{width:48px; height:48px; background:linear-gradient(135deg,#fc3f1d,#ff7a3d)}
+  #miniPlayer .mp-play svg{width:26px; height:26px}
+  body.has-mini{padding-bottom:86px}
+
+  @media (max-width:720px){
+    html{-webkit-text-size-adjust:100%}
+    body{touch-action:manipulation}
+    .app{padding:12px 10px 44px}
+    .card{padding:14px; border-radius:16px; margin-bottom:12px}
+    header.top{padding:4px 2px 12px; gap:10px}
+    header.top h1{font-size:18px}
+    header.top p{font-size:12px}
+    .logo{width:42px; height:42px; border-radius:12px}
+    .logo svg{width:22px; height:22px}
+    .now-playing-pill{max-width:170px; padding:7px 10px; font-size:12px}
+    .btn{min-height:44px}
+    .btn-sm{min-height:40px; padding:8px 12px}
+    .icon-btn{width:44px; height:44px}
+
+    /* Catalog mobile */
+    .search-box input{font-size:16px}
+    .book-grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px}
+    .book-card-body{padding:10px}
+    .book-card-title{font-size:13.5px}
+    .book-card-desc{font-size:12px}
+    .book-grid.list-mode .book-cover-wrap{width:88px; min-width:88px}
+    .shelf-grid{grid-template-columns:1fr}
+
+    /* Book hero mobile */
+    .book-hero{padding:16px}
+    .book-hero-inner{flex-direction:column; gap:16px; align-items:center}
+    .book-hero-cover{width:min(240px, 78vw)}
+    .book-hero-info{width:100%}
+    .book-hero-info h2{font-size:20px}
+    .book-actions .btn-lg{flex:1 1 100%}
+
+    /* Player mobile */
+    .jump-row input, .pill select{font-size:16px}
+    .pill .pill-text{display:inline}
+    .track-head{flex-wrap:wrap; gap:10px}
+    .cover{width:54px; height:54px; border-radius:14px; font-size:24px}
+    .track-head h3{font-size:16px}
+    .track-meta{font-size:12px}
+    .track-actions{margin-left:0; width:100%; justify-content:flex-start}
+    .track-actions .btn{flex:1 1 auto}
+    .seekbar{height:44px; margin:0 -6px; padding:0 6px}
+    .seekbar .track{height:10px}
+    .seekbar .handle{width:22px; height:22px}
+    .controls{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:10px; padding-bottom:14px}
+    .ctl{
+      width:100%; height:52px; border-radius:14px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    }
+    .ctl-main{width:100%; height:60px; border-radius:18px}
+    .ctl .ctl-label{position:static; transform:none; margin-top:3px; font-size:9.5px; line-height:1.1}
+    .ctl svg{width:20px; height:20px}
+    .ctl-main svg{width:30px; height:30px}
+    #prevBtn{grid-area:1 / 1 / 2 / 2}
+    [data-seek="-30"]{grid-area:1 / 2 / 2 / 3}
+    [data-seek="30"]{grid-area:1 / 3 / 2 / 4}
+    #nextBtn{grid-area:1 / 4 / 2 / 5}
+    [data-seek="-10"]{grid-area:2 / 1 / 3 / 2}
+    #playBtn{grid-area:2 / 2 / 3 / 4}
+    [data-seek="10"]{grid-area:2 / 4 / 3 / 5}
+    .controls2{gap:8px; margin-top:16px}
+    .pill{flex:1 1 auto; justify-content:center; padding:10px 12px}
+    .pill input[type="range"]{width:100%; min-width:90px; height:36px}
+    .pill select{min-height:26px}
+    .pill button{min-width:34px; min-height:34px}
+    .pill-preamp{flex:1 1 100%; justify-content:flex-start}
+    .pill.pill-preamp .preamp-caption{display:none}
+    .pill.pill-preamp input[type="range"]{flex:1 1 auto; width:auto; min-width:120px}
+    .pill.pill-preamp .preamp-value{min-width:48px}
+    .jump-row input{flex:1 1 100%}
+    .jump-row .btn{flex:1 1 100%}
+    .history-item{align-items:flex-start; padding:10px}
+    .history-item .title{font-size:14px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+    .playlist-item{padding:12px 10px}
+    .playlist-item .title{font-size:13.5px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+    .playlist-item .num{width:28px; height:28px; font-size:12px}
+
+    /* Help bottom sheet on mobile */
+    .modal{padding:0; align-items:flex-end}
+    .modal-dialog{border-radius:20px 20px 0 0; max-height:88vh}
+    .help-grid{grid-template-columns:1fr; gap:14px}
+
+    #toast{bottom:calc(14px + env(safe-area-inset-bottom)); font-size:13.5px; max-width:94vw}
+    body.has-mini #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
+  }
+  @media (max-width:380px){
+    .ctl{height:48px}
+    .ctl .ctl-label{display:none}
+    .ctl-main{height:58px}
+    .card{padding:12px}
+    .book-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand" id="brandHome" role="button" tabindex="0" title="На главную каталога">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM9 4h2v5l-1-.75L9 9V4zm9 16H6V4h1v9l3-2.25L13 13V4h5v16z"/></svg>
+      </div>
+      <div>
+        <h1 id="appTitle">Аудиотека</h1>
+        <p id="appSubtitle">Каталог аудиокниг · Яндекс Диск</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="now-playing-pill hidden" type="button" id="headerNowPlayingBtn" title="Открыть плеер">
+        <span class="np-dot" aria-hidden="true"></span>
+        <span class="np-text" id="headerNowPlayingText">Плеер</span>
+      </button>
+      <button class="btn btn-sm" type="button" id="helpBtn" aria-haspopup="dialog">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41a2 2 0 1 0-4 0H8a4 4 0 1 1 8 0c0 .88-.36 1.68-.93 2.25z"/></svg>
+        Справка
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== VIEW 1: КАТАЛОГ ==================== -->
+  <main id="catalogView" aria-label="Каталог аудиокниг">
+    <!-- Полка быстрого продолжения (появляется, если есть прогресс) -->
+    <section class="card shelf-card hidden" id="continueShelf" aria-label="Продолжить прослушивание">
+      <div class="shelf-head">
+        <h2>▶ Продолжить прослушивание</h2>
+      </div>
+      <div class="shelf-grid" id="continueShelfGrid"></div>
+    </section>
+
+    <!-- Панель поиска и фильтров каталога -->
+    <section class="card catalog-toolbar" aria-label="Управление каталогом">
+      <div class="toolbar-top">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input type="search" id="catalogSearch" placeholder="Поиск по названию или описанию…" autocomplete="off" spellcheck="false" aria-label="Поиск по каталогу">
+          <button type="button" class="search-clear hidden" id="catalogSearchClear" aria-label="Очистить поиск">✕</button>
+        </div>
+        <div class="view-toggle" role="group" aria-label="Вид каталога">
+          <button type="button" id="viewGridBtn" class="active" title="Сетка обложек">
+            <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>
+            Сетка
+          </button>
+          <button type="button" id="viewListBtn" title="Список">
+            <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+            Список
+          </button>
+        </div>
+        <button class="btn btn-sm" type="button" id="catalogRefreshBtn" title="Обновить список с Яндекс Диска">↻ Обновить</button>
+      </div>
+      <div class="toolbar-filters" id="catalogFilters">
+        <button type="button" class="chip active" data-status-filter="all">Все</button>
+        <button type="button" class="chip" data-status-filter="in_progress">В процессе</button>
+        <button type="button" class="chip" data-status-filter="new">Новые</button>
+        <button type="button" class="chip" data-status-filter="done">Прослушанные</button>
+        <span class="catalog-stats" id="catalogStats"></span>
+      </div>
+      <div class="toolbar-filters hidden" id="catalogCategoryChips" aria-label="Разделы каталога"></div>
+      <div class="status" id="catalogStatus" role="status" aria-live="polite"></div>
+    </section>
+
+    <div id="catalogContent"></div>
+  </main>
+
+  <!-- ==================== VIEW 2: СТРАНИЦА КНИГИ ==================== -->
+  <section id="bookView" class="hidden" aria-label="Страница книги">
+    <div class="view-nav">
+      <button class="btn btn-sm" type="button" id="bookBackBtn">← К каталогу</button>
+      <nav class="breadcrumbs" id="bookBreadcrumbs" aria-label="Путь к книге"></nav>
+    </div>
+
+    <section class="card book-hero">
+      <div class="book-hero-bg" id="bookHeroBg"></div>
+      <div class="book-hero-inner">
+        <div class="book-hero-cover" id="bookHeroCover">
+          <div class="hero-fallback">
+            <svg viewBox="0 0 24 24"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM9 4h2v5l-1-.75L9 9V4zm9 16H6V4h1v9l3-2.25L13 13V4h5v16z"/></svg>
+            <span>Обложка</span>
+          </div>
+        </div>
+        <div class="book-hero-info">
+          <div class="book-tag hidden" id="bookParentTag"></div>
+          <h2 id="bookTitle">—</h2>
+          <div class="book-meta-pills" id="bookMetaPills"></div>
+          <div class="book-actions">
+            <button class="btn btn-primary btn-lg" type="button" id="bookListenBtn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              <span id="bookListenText">Слушать</span>
+            </button>
+            <button class="btn btn-sm hidden" type="button" id="bookStartOverBtn">↺ С начала</button>
+            <button class="btn btn-sm" type="button" id="bookShareBtn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 16.1a3 3 0 0 0-2 .8l-7.1-4.2a3 3 0 0 0 0-1.4L16 7.1a3 3 0 1 0-1-2.1c0 .2 0 .4.1.6L8 9.8a3 3 0 1 0 0 4.4l7.1 4.2c0 .2-.1.4-.1.6a3 3 0 1 0 3-3z"/></svg>
+              Поделиться
+            </button>
+          </div>
+          <div class="status" id="bookStatus" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="bookDescCard">
+      <h2>Описание</h2>
+      <div class="book-desc-text" id="bookDescText">Загружаем описание…</div>
+    </section>
+
+    <section class="card hidden" id="bookSubfoldersCard">
+      <div class="folder-head" style="margin-bottom:12px">
+        <h2>Подпапки</h2>
+        <span class="folder-count" id="bookSubfoldersCount"></span>
+      </div>
+      <div class="book-grid" id="bookSubfoldersGrid"></div>
+    </section>
+
+    <section class="card hidden" id="bookChaptersCard">
+      <div class="folder-head" style="margin-bottom:10px">
+        <h2>Аудиофайлы</h2>
+        <span class="folder-count" id="bookChaptersCount"></span>
+      </div>
+      <div id="bookChaptersList"></div>
+    </section>
+  </section>
+
+  <!-- ==================== VIEW 3: ПЛЕЕР ==================== -->
+  <section id="playerView" class="player-shell hidden" aria-label="Плеер">
+    <div class="view-nav">
+      <button class="btn btn-sm" type="button" id="playerBackToBookBtn">← К книге</button>
+      <button class="btn btn-sm btn-ghost" type="button" id="playerBackToCatalogBtn">📚 В каталог</button>
+    </div>
+
+    <div class="status" id="statusBox" role="status" aria-live="polite"></div>
+
+    <!-- PLAYER -->
+    <section class="card" id="playerCard" aria-label="Аудиоплеер">
+      <div class="track-head">
+        <div class="cover" id="playerCover" aria-hidden="true">
+          <img id="playerCoverImg" alt="" referrerpolicy="no-referrer" class="hidden">
+          <span id="playerCoverEmoji">🎧</span>
+        </div>
+        <div style="flex:1; min-width:0">
+          <h3 id="trackTitle">—</h3>
+          <p class="track-meta" id="trackMeta">—</p>
+          <div class="resume-banner" id="resumeBanner">
+            <span id="resumeText">Продолжить с 00:00?</span>
+            <button class="btn btn-sm btn-primary" id="resumeYesBtn" type="button">Продолжить</button>
+            <button class="btn btn-sm btn-ghost" id="resumeNoBtn" type="button">С начала</button>
+          </div>
+        </div>
+        <div class="track-actions">
+          <button class="btn btn-sm" id="downloadBtn" type="button" title="Открыть прямую ссылку (скачивание)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Скачать
+          </button>
+          <button class="btn btn-sm" id="copyDirectBtn" type="button" title="Скопировать прямую ссылку">Копировать файл</button>
+          <button class="btn btn-sm" id="sharePlayerBtn" type="button" title="Скопировать ссылку на эту книгу">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 16.1a3 3 0 0 0-2 .8l-7.1-4.2a3 3 0 0 0 0-1.4L16 7.1a3 3 0 1 0-1-2.1c0 .2 0 .4.1.6L8 9.8a3 3 0 1 0 0 4.4l7.1 4.2c0 .2-.1.4-.1.6a3 3 0 1 0 3-3z"/></svg>
+            Поделиться
+          </button>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="seekbar" id="seekBar" role="slider" aria-label="Позиция воспроизведения" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+          <div class="track">
+            <div class="buffered" id="bufferedBar"></div>
+            <div class="played" id="playedBar"></div>
+          </div>
+          <div class="handle" id="seekHandle"></div>
+        </div>
+        <div class="time-row">
+          <span id="curTime">00:00</span>
+          <button type="button" id="timeToggleBtn" title="Нажмите, чтобы показать оставшееся время">00:00</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="ctl" type="button" id="prevBtn" aria-label="Предыдущий файл" disabled>
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+          <span class="ctl-label">пред.</span>
+        </button>
+        <button class="ctl" type="button" data-seek="-30" aria-label="Назад на 30 секунд">
+          <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+          <span class="ctl-label">−30 сек</span>
+        </button>
+        <button class="ctl" type="button" data-seek="-10" aria-label="Назад на 10 секунд">
+          <svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6L11 18zm.5-6l8.5 6V6l-8.5 6z"/></svg>
+          <span class="ctl-label">−10 сек</span>
+        </button>
+        <button class="ctl ctl-main" type="button" id="playBtn" aria-label="Воспроизвести / Пауза">
+          <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="pauseIcon" viewBox="0 0 24 24" class="hidden"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="ctl" type="button" data-seek="10" aria-label="Вперёд на 10 секунд">
+          <svg viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
+          <span class="ctl-label">+10 сек</span>
+        </button>
+        <button class="ctl" type="button" data-seek="30" aria-label="Вперёд на 30 секунд">
+          <svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7a5 5 0 1 0 5 5h2a7 7 0 1 1-7-7z"/></svg>
+          <span class="ctl-label">+30 сек</span>
+        </button>
+        <button class="ctl" type="button" id="nextBtn" aria-label="Следующий файл" disabled>
+          <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2V6zM6 18l8.5-6L6 6v12z"/></svg>
+          <span class="ctl-label">след.</span>
+        </button>
+      </div>
+
+      <div class="controls2">
+        <span class="pill" title="Скорость воспроизведения">
+          <svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6V4zm1 3h-2v6l5 3 1-1.7-4-2.3V7z"/></svg>
+          <select id="speedSelect" aria-label="Скорость">
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+            <option value="1.75">1.75×</option>
+            <option value="2">2×</option>
+            <option value="2.5">2.5×</option>
+            <option value="3">3×</option>
+          </select>
+        </span>
+        <span class="pill" title="Громкость">
+          <button type="button" id="muteBtn" aria-label="Без звука">
+            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+          </button>
+          <input type="range" id="volumeRange" min="0" max="1" step="0.05" value="1" aria-label="Громкость">
+        </span>
+        <span class="pill pill-preamp" id="preampPill" title="Предусилитель: усиливает тихие записи выше обычного максимума">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17h2V7H3v10zm4 0h2V4H7v13zm4 0h2V9h-2v8zm4 0h2V2h-2v15zm4 0h2v-6h-2v6z"/></svg>
+          <span class="preamp-caption">Усиление</span>
+          <input type="range" id="preampRange" min="1" max="3" step="0.05" value="1" aria-label="Предусилитель, усиление громкости">
+          <span id="preampLabel" class="preamp-value">100%</span>
+          <button type="button" id="preampResetBtn" class="preamp-reset hidden" aria-label="Сбросить усиление к 100%" title="Сбросить к 100%">↺</button>
+        </span>
+        <span class="pill" title="Сначала">
+          <button type="button" id="restartBtn" aria-label="С начала">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+          </button>
+          <span class="pill-text">Сначала</span>
+        </span>
+        <span class="pill" title="Добавить метку на текущей позиции">
+          <button type="button" id="bookmarkBtn">
+            <svg viewBox="0 0 24 24"><path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z"/></svg>
+            Метка
+          </button>
+        </span>
+        <span class="pill" id="sleepPill" title="Таймер сна">
+          <svg viewBox="0 0 24 24"><path d="M12 22a10 10 0 1 1 10-10h-2a8 8 0 1 0-8 8v2zm1-14h-2v6l5 3 1-1.7-4-2.3V8z"/></svg>
+          <select id="sleepSelect" aria-label="Таймер сна">
+            <option value="0">Таймер: выкл</option>
+            <option value="15">15 мин</option>
+            <option value="30">30 мин</option>
+            <option value="60">60 мин</option>
+            <option value="90">90 мин</option>
+          </select>
+          <span id="sleepLabel" class="hidden" style="color:#ffe98a; font-weight:700"></span>
+        </span>
+      </div>
+
+      <div class="jump-row">
+        <input type="text" id="jumpInput" placeholder="Перейти ко времени:  12:30  или  1:05:20" aria-label="Перейти ко времени">
+        <button class="btn btn-sm" type="button" id="jumpBtn">Перейти</button>
+      </div>
+
+      <div class="bookmarks" id="bookmarksWrap">
+        <h4>Метки</h4>
+        <div class="bm-list" id="bmList"><span class="empty">Меток пока нет. Нажмите «Метка», чтобы сохранить момент.</span></div>
+      </div>
+
+      <div class="settings-row">
+        <label class="check"><input type="checkbox" id="autoResumeChk" checked> Автопродолжение с места остановки</label>
+        <label class="check"><input type="checkbox" id="autoNextChk" checked> Автопереход к следующему файлу</label>
+      </div>
+
+      <!-- referrerpolicy: без него Яндекс отвечает 403 на хостингах (GitHub Pages) -->
+      <audio id="audio" preload="metadata" playsinline referrerpolicy="no-referrer"></audio>
+    </section>
+
+    <!-- FOLDER / PLAYLIST -->
+    <section class="card hidden" id="folderCard" aria-label="Список файлов книги">
+      <div class="folder-head">
+        <h2 id="folderTitle">📁 Главы</h2>
+        <span class="folder-count" id="folderCount"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" type="button" id="folderRefreshBtn">↻ Обновить</button>
+      </div>
+      <p class="sub" id="folderPath" style="margin-bottom:10px"></p>
+      <div class="status" id="folderStatus" role="status" aria-live="polite"></div>
+      <div id="playlistList"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="card" id="historyCard" aria-label="История">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+        <h2 style="margin:0">История прослушивания</h2>
+        <button class="btn btn-sm btn-ghost" type="button" id="clearHistoryBtn" style="margin-left:auto">Очистить историю</button>
+      </div>
+      <p class="sub">Здесь хранятся все открытые файлы и точное место остановки.</p>
+      <div id="historyList"><p class="empty">История пуста.</p></div>
+    </section>
+  </section>
+
+  <footer>
+    <span>Плеер работает полностью в браузере. Позиции и метки хранятся локально на вашем устройстве.</span>
+    <button type="button" class="footer-help-link" id="footerHelpBtn">Справка</button>
+  </footer>
+</div>
+
+<!-- Всплывающая Справка -->
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" aria-hidden="true">
+  <div class="modal-backdrop" id="helpBackdrop"></div>
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h2 id="helpModalTitle">Справка</h2>
+      <button type="button" class="modal-close" id="helpCloseBtn" aria-label="Закрыть справку">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="help-grid">
+        <div>
+          <h3>⌨️ Горячие клавиши</h3>
+          <ul>
+            <li><kbd>Пробел</kbd> / <kbd>K</kbd> — воспроизвести / пауза</li>
+            <li><kbd>J</kbd> / <kbd>L</kbd> или <kbd>←</kbd> / <kbd>→</kbd> — ∓10 сек</li>
+            <li><kbd>Shift</kbd>+<kbd>J</kbd>/<kbd>L</kbd> — ∓30 сек</li>
+            <li><kbd>P</kbd> / <kbd>N</kbd> — предыдущий / следующий файл</li>
+            <li><kbd>↑</kbd> / <kbd>↓</kbd> — громкость, <kbd>M</kbd> — без звука</li>
+            <li><kbd>0</kbd>–<kbd>9</kbd> — переход к 0%–90% файла</li>
+            <li><kbd>Esc</kbd> — закрыть справку</li>
+          </ul>
+        </div>
+        <div>
+          <h3>📱 На телефоне (Android)</h3>
+          <ul>
+            <li>Меню браузера <b>⋮</b> → <b>«Установить приложение»</b> — появится иконка на рабочем столе и полноэкранный режим.</li>
+            <li>Играет в фоне при выключенном экране; <b>перемотка и пауза доступны с экрана блокировки</b> и из шторки уведомлений.</li>
+            <li>Мини-плеер внизу экрана позволяет управлять воспроизведением, пока вы выбираете другую книгу в каталоге.</li>
+            <li>Кнопка «назад» возвращает из плеера к книге, а со страницы книги — в каталог.</li>
+            <li>Позиция каждого файла сохраняется в памяти телефона.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>📚 Как устроен каталог</h3>
+          <ul>
+            <li>Каталог загружает папки и подпапки из привязанной папки Яндекс Диска.</li>
+            <li>Из каждой папки автоматически подтягивается картинка обложки и текстовый файл с описанием.</li>
+            <li>Клик по папке или подпапке открывает страницу книги; кнопка <b>«Слушать»</b> переносит в плеер.</li>
+            <li>Прогресс прослушивания отмечается прямо на карточках в каталоге и на полке «Продолжить».</li>
+          </ul>
+        </div>
+        <div>
+          <h3>ℹ️ О работе плеера</h3>
+          <ul>
+            <li>Используется официальный API Яндекс Диска — перемотка по длинным файлам работает сразу, без скачивания файла целиком.</li>
+            <li><b>«Усиление»</b> — предусилитель до 300% для тихих записей с мягким лимитером пиков.</li>
+            <li>Автопереход к следующему файлу срабатывает и при обрыве потока в конце длинного файла.</li>
+            <li>Позиция сохраняется каждые 3 секунды и при закрытии вкладки (<code>localStorage</code>).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="install-row" id="installRow">
+        <button class="btn btn-sm btn-primary" type="button" id="installBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 1H7a2 2 0 0 0-2 2v18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm0 18H7V5h10v14z"/></svg>
+          Установить на телефон
+        </button>
+        <span class="text">Ярлык на рабочем столе, полноэкранный режим и управление с экрана блокировки.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- Мини-плеер: появляется, когда пользователь в каталоге/книге или прокрутил плеер -->
+<div id="miniPlayer" role="region" aria-label="Мини-плеер">
+  <div class="mp-progress"><div id="mpProgress"></div></div>
+  <div class="mp-row">
+    <div class="mp-thumb" id="mpThumb" aria-hidden="true">
+      <img id="mpCoverImg" alt="" referrerpolicy="no-referrer" class="hidden">
+      <span id="mpCoverEmoji">🎧</span>
+    </div>
+    <div class="mp-info" id="mpInfo" role="button" tabindex="0" aria-label="Открыть плеер">
+      <div class="mp-title" id="mpTitle">—</div>
+      <div class="mp-meta" id="mpMeta">—</div>
+    </div>
+    <button class="mp-btn" type="button" id="mpPrev" aria-label="Предыдущий файл" disabled>
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+    </button>
+    <button class="mp-btn mp-play" type="button" id="mpPlay" aria-label="Воспроизвести / Пауза">
+      <svg viewBox="0 0 24 24" id="mpPlayIcon"><path d="M8 5v14l11-7z"/></svg>
+      <svg viewBox="0 0 24 24" id="mpPauseIcon" class="hidden"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="mp-btn" type="button" id="mpNext" aria-label="Следующий файл" disabled>
+      <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2V6zM6 18l8.5-6L6 6v12z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // =========================================================================
+  // НАСТРОЙКА КАТАЛОГА — при необходимости поменяйте ссылку на свою папку
+  // =========================================================================
+  const CATALOG_CONFIG = {
+    yandexDiskUrl: "https://disk.yandex.com/d/Qb_HBohs2k5iEg",
+    title: "Аудиотека",
+    subtitle: "Каталог аудиокниг · Яндекс Диск",
+    cacheTtlMs: 15 * 60 * 1000, // 15 минут кэша структуры каталога
+  };
+
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  // Header & Views
+  const brandHome = $("#brandHome");
+  const appTitleEl = $("#appTitle");
+  const appSubtitleEl = $("#appSubtitle");
+  const headerNowPlayingBtn = $("#headerNowPlayingBtn");
+  const headerNowPlayingText = $("#headerNowPlayingText");
+  const helpBtn = $("#helpBtn");
+  const footerHelpBtn = $("#footerHelpBtn");
+  const helpModal = $("#helpModal");
+  const helpBackdrop = $("#helpBackdrop");
+  const helpCloseBtn = $("#helpCloseBtn");
+
+  const catalogView = $("#catalogView");
+  const bookView = $("#bookView");
+  const playerView = $("#playerView");
+
+  // Catalog elements
+  const continueShelf = $("#continueShelf");
+  const continueShelfGrid = $("#continueShelfGrid");
+  const catalogSearch = $("#catalogSearch");
+  const catalogSearchClear = $("#catalogSearchClear");
+  const viewGridBtn = $("#viewGridBtn");
+  const viewListBtn = $("#viewListBtn");
+  const catalogRefreshBtn = $("#catalogRefreshBtn");
+  const catalogFilters = $("#catalogFilters");
+  const catalogCategoryChips = $("#catalogCategoryChips");
+  const catalogStats = $("#catalogStats");
+  const catalogStatus = $("#catalogStatus");
+  const catalogContent = $("#catalogContent");
+
+  // Book detail elements
+  const bookBackBtn = $("#bookBackBtn");
+  const bookBreadcrumbs = $("#bookBreadcrumbs");
+  const bookHeroBg = $("#bookHeroBg");
+  const bookHeroCover = $("#bookHeroCover");
+  const bookParentTag = $("#bookParentTag");
+  const bookTitleEl = $("#bookTitle");
+  const bookMetaPills = $("#bookMetaPills");
+  const bookListenBtn = $("#bookListenBtn");
+  const bookListenText = $("#bookListenText");
+  const bookStartOverBtn = $("#bookStartOverBtn");
+  const bookShareBtn = $("#bookShareBtn");
+  const bookStatus = $("#bookStatus");
+  const bookDescText = $("#bookDescText");
+  const bookSubfoldersCard = $("#bookSubfoldersCard");
+  const bookSubfoldersCount = $("#bookSubfoldersCount");
+  const bookSubfoldersGrid = $("#bookSubfoldersGrid");
+  const bookChaptersCard = $("#bookChaptersCard");
+  const bookChaptersCount = $("#bookChaptersCount");
+  const bookChaptersList = $("#bookChaptersList");
+
+  // Player elements
+  const playerBackToBookBtn = $("#playerBackToBookBtn");
+  const playerBackToCatalogBtn = $("#playerBackToCatalogBtn");
+  const audio = $("#audio");
+  const statusBox = $("#statusBox");
+  const playerCard = $("#playerCard");
+  const playerCoverImg = $("#playerCoverImg");
+  const playerCoverEmoji = $("#playerCoverEmoji");
+  const trackTitle = $("#trackTitle");
+  const trackMeta = $("#trackMeta");
+  const resumeBanner = $("#resumeBanner");
+  const resumeText = $("#resumeText");
+  const seekBar = $("#seekBar");
+  const playedBar = $("#playedBar");
+  const bufferedBar = $("#bufferedBar");
+  const seekHandle = $("#seekHandle");
+  const curTimeEl = $("#curTime");
+  const timeToggleBtn = $("#timeToggleBtn");
+  const playBtn = $("#playBtn");
+  const playIcon = $("#playIcon");
+  const pauseIcon = $("#pauseIcon");
+  const speedSelect = $("#speedSelect");
+  const volumeRange = $("#volumeRange");
+  const muteBtn = $("#muteBtn");
+  const preampRange = $("#preampRange");
+  const preampLabel = $("#preampLabel");
+  const preampPill = $("#preampPill");
+  const preampResetBtn = $("#preampResetBtn");
+  const historyList = $("#historyList");
+  const bmList = $("#bmList");
+  const toastEl = $("#toast");
+  const prevBtn = $("#prevBtn");
+  const nextBtn = $("#nextBtn");
+  const folderCard = $("#folderCard");
+  const folderTitle = $("#folderTitle");
+  const folderCount = $("#folderCount");
+  const folderPath = $("#folderPath");
+  const folderStatus = $("#folderStatus");
+  const playlistList = $("#playlistList");
+  const folderRefreshBtn = $("#folderRefreshBtn");
+  const autoNextChk = $("#autoNextChk");
+  const autoResumeChk = $("#autoResumeChk");
+
+  // Mini player & PWA
+  const miniPlayer = $("#miniPlayer");
+  const mpCoverImg = $("#mpCoverImg");
+  const mpCoverEmoji = $("#mpCoverEmoji");
+  const mpTitle = $("#mpTitle");
+  const mpMeta = $("#mpMeta");
+  const mpProgress = $("#mpProgress");
+  const mpPlayBtn = $("#mpPlay");
+  const mpPlayIcon = $("#mpPlayIcon");
+  const mpPauseIcon = $("#mpPauseIcon");
+  const mpPrev = $("#mpPrev");
+  const mpNext = $("#mpNext");
+  const mpInfo = $("#mpInfo");
+  const installRow = $("#installRow");
+  const installBtn = $("#installBtn");
+
+  appTitleEl.textContent = CATALOG_CONFIG.title || "Аудиотека";
+  appSubtitleEl.textContent = CATALOG_CONFIG.subtitle || "Каталог аудиокниг · Яндекс Диск";
+
+  const LS_TRACKS = "yd-player-tracks-v1";
+  const LS_BOOKMARKS = "yd-player-bookmarks-v1";
+  const LS_SETTINGS = "yd-player-settings-v1";
+  const LS_FOLDER = "yd-player-folder-v1";
+  const LS_CATALOG_CACHE = "yd-catalog-cache-v1";
+
+  const ROOT_URL = cleanYandexUrl(CATALOG_CONFIG.yandexDiskUrl);
+
+  // Player state
+  let currentUrl = null;      // ключ трека (folderUrl|||filePath)
+  let currentHref = null;     // прямая ссылка для <audio>
+  let currentTitle = "Аудиофайл";
+  let currentSize = null;
+  let currentMime = null;
+  let currentBookPath = null; // путь к папке текущей книги в каталоге
+  let currentCoverUrl = null; // обложка текущей книги
+  let showRemaining = false;
+  let pendingResume = null;
+  let sleepTimerId = null;
+  let sleepEndAt = null;
+  let lastSaveAt = 0;
+  let isSeeking = false;
+  let isLoading = false;
+  let resumeTarget = null;
+  let resumeApplied = false;
+  let resumeToastShown = false;
+  let loadGuardTimer = null;
+  let linkRetried = false;
+  let audioCtx = null, gainNode = null, limiterNode = null, mediaSourceNode = null;
+  let boostUnsupported = false;
+  let currentFolder = null;
+  let currentFolderName = null;
+
+  // Catalog state
+  // foldersByPath: Map<path, { path, name, parentPath, dirs:[], audios:[], coverItem, descItem, coverUrl, descText, descLoaded, loaded, error }>
+  const foldersByPath = new Map();
+  let catalogRootLoaded = false;
+  let catalogSearchQuery = "";
+  let catalogStatusFilter = "all"; // all | in_progress | new | done
+  let catalogCategoryFilter = "all"; // all | <rootDirPath>
+  let catalogViewMode = "grid"; // grid | list
+  let expandedSections = new Set(); // по умолчанию подпапки свёрнуты
+  let activeView = "catalog"; // catalog | book | player
+  let activeBookPath = null;
+  let catalogRenderTimer = null;
+
+  // ---------- storage ----------
+  function loadJSON(key, fallback){
+    try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch(e){ return fallback; }
+  }
+  function saveJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+  }
+  function loadTracks(){ return loadJSON(LS_TRACKS, {}); }
+  function saveTracks(t){ saveJSON(LS_TRACKS, t); }
+  function loadBookmarks(){ return loadJSON(LS_BOOKMARKS, {}); }
+  function saveBookmarks(b){ saveJSON(LS_BOOKMARKS, b); }
+  function loadSettings(){
+    return loadJSON(LS_SETTINGS, {volume:1, rate:1, autoResume:true, autoNext:true, viewMode:"grid", lastUrl:null});
+  }
+  function saveSettings(s){ saveJSON(LS_SETTINGS, s); }
+  function loadFolderState(){ return loadJSON(LS_FOLDER, null); }
+  function saveFolderState(f){ saveJSON(LS_FOLDER, f); }
+
+  let settings = loadSettings();
+  if (typeof settings.volume === "number") audio.volume = settings.volume;
+  if (typeof settings.rate === "number" && settings.rate > 0){
+    audio.playbackRate = settings.rate;
+    speedSelect.value = String(settings.rate);
+  }
+  autoResumeChk.checked = settings.autoResume !== false;
+  autoNextChk.checked = settings.autoNext !== false;
+  volumeRange.value = String(audio.volume);
+  if (settings.viewMode === "list") catalogViewMode = "list";
+  updateViewToggleUI();
+
+  // ---------- helpers ----------
+  function formatTime(sec){
+    if (!isFinite(sec) || sec == null || isNaN(sec)) return "00:00";
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    const mm = String(m).padStart(2,"0"), ss = String(s).padStart(2,"0");
+    return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+  }
+  function formatSize(bytes){
+    if (bytes == null || isNaN(bytes)) return "";
+    const units = ["Б","КБ","МБ","ГБ"];
+    let i = 0, v = bytes;
+    while (v >= 1024 && i < units.length-1){ v /= 1024; i++; }
+    return (i===0 ? Math.round(v) : v.toFixed(1)) + " " + units[i];
+  }
+  function formatDate(ts){
+    if (!ts) return "";
+    try{ return new Date(ts).toLocaleString("ru-RU", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}); }
+    catch(e){ return ""; }
+  }
+  function plural(n, one, few, many){
+    const abs = Math.abs(n) % 100;
+    const n1 = abs % 10;
+    if (abs > 10 && abs < 20) return many;
+    if (n1 > 1 && n1 < 5) return few;
+    if (n1 === 1) return one;
+    return many;
+  }
+  function parseTimeInput(str){
+    if (!str) return null;
+    str = String(str).trim().replace(",", ".");
+    if (!str) return null;
+    if (str.includes(":")){
+      const parts = str.split(":").map(p => parseFloat(p));
+      if (parts.some(isNaN)) return null;
+      if (parts.length === 2) return parts[0]*60 + parts[1];
+      if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+      return null;
+    }
+    const n = parseFloat(str);
+    return isNaN(n) ? null : n;
+  }
+  function toast(msg, isError){
+    toastEl.textContent = msg;
+    toastEl.classList.toggle("error", !!isError);
+    toastEl.classList.add("show");
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(() => toastEl.classList.remove("show"), 3400);
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function setStatusBox(el, html, kind){
+    if (!el) return;
+    if (!html){ el.classList.remove("show"); el.innerHTML = ""; return; }
+    el.className = "status show" + (kind ? " " + kind : "");
+    el.innerHTML = html;
+  }
+  let statusPinnedUntil = 0;
+  function setStatus(html, kind){
+    if (!html){
+      if (Date.now() < statusPinnedUntil) return;
+      statusBox.classList.remove("show"); statusBox.innerHTML = ""; return;
+    }
+    statusBox.className = "status show" + (kind ? " " + kind : "");
+    statusBox.innerHTML = html;
+  }
+  function setLoading(msg){
+    setStatus('<span class="spinner" aria-hidden="true"></span><span>' + escapeHtml(msg) + '</span>');
+  }
+  function cleanYandexUrl(url){
+    try{
+      const u = new URL(url);
+      return u.origin + u.pathname;
+    }catch(e){
+      return (url || "").split("#")[0].split("?")[0];
+    }
+  }
+  function isYandexLink(url){
+    if (!url) return false;
+    const u = url.toLowerCase();
+    return u.includes("disk.yandex.") || u.includes("yandex.ru/disk") || u.includes("yandex.com/disk") ||
+           u.includes("yadi.sk") || u.includes("ya.cc");
+  }
+  function normalizeDiskPath(p){
+    if (!p || p === "/") return "/";
+    let s = String(p).replace(/\/+/g, "/");
+    if (!s.startsWith("/")) s = "/" + s;
+    if (s.length > 1 && s.endsWith("/")) s = s.slice(0, -1);
+    return s;
+  }
+  function parentPath(p){
+    const norm = normalizeDiskPath(p);
+    if (norm === "/") return "/";
+    const parts = norm.split("/").filter(Boolean);
+    parts.pop();
+    return parts.length ? "/" + parts.join("/") : "/";
+  }
+  function folderNameFromPath(p){
+    const norm = normalizeDiskPath(p);
+    if (norm === "/") return CATALOG_CONFIG.title || "Каталог";
+    return norm.split("/").filter(Boolean).pop() || "Папка";
+  }
+
+  // ---------- ключи треков в папке ----------
+  function isFolderFileKey(key){ return !!key && key.includes("|||"); }
+  function parseFolderFileKey(key){
+    if (!isFolderFileKey(key)) return null;
+    const idx = key.indexOf("|||");
+    return {folderUrl: key.slice(0, idx), filePath: key.slice(idx + 3)};
+  }
+  function folderFileKey(folderUrl, filePath){
+    return cleanYandexUrl(folderUrl) + "|||" + normalizeDiskPath(filePath);
+  }
+  function titleFromUrl(url){
+    if (url && url.includes("|||")){
+      const p = url.split("|||")[1] || "";
+      const base = p.split("/").filter(Boolean).pop() || "";
+      try{ return decodeURIComponent(base) || "Аудиофайл"; }catch(e){ return base || "Аудиофайл"; }
+    }
+    return "Аудиофайл";
+  }
+
+  // ---------- типы файлов в папке ----------
+  function naturalSort(a, b){
+    return String(a.name || "").localeCompare(String(b.name || ""), "ru", {numeric: true, sensitivity: "base"});
+  }
+  function isAudioFileItem(item){
+    if (!item || item.type !== "file") return false;
+    const mime = (item.mime_type || "").toLowerCase();
+    if (mime.startsWith("audio/")) return true;
+    return /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)$/i.test(item.name || "");
+  }
+  function isImageFileItem(item){
+    if (!item || item.type !== "file") return false;
+    const mime = (item.mime_type || "").toLowerCase();
+    if (mime.startsWith("image/")) return true;
+    return /\.(jpe?g|png|webp|gif|avif|bmp)$/i.test(item.name || "");
+  }
+  function isTextFileItem(item){
+    if (!item || item.type !== "file") return false;
+    const mime = (item.mime_type || "").toLowerCase();
+    if (mime.startsWith("text/")) return true;
+    return /\.(txt|md|nfo|desc)$/i.test(item.name || "");
+  }
+  function pickCoverItem(items){
+    const imgs = (items || []).filter(isImageFileItem).slice().sort(naturalSort);
+    if (!imgs.length) return null;
+    const preferred = imgs.find(it => /^(cover|обложка|poster|front|folder|thumb|art)$/i.test((it.name || "").replace(/\.[^.]+$/, "")));
+    return preferred || imgs[0];
+  }
+  function pickDescItem(items){
+    const txts = (items || []).filter(isTextFileItem).slice().sort(naturalSort);
+    if (!txts.length) return null;
+    const preferred = txts.find(it => /^(description|описание|about|info|readme|аннотация|annotation|desc)$/i.test((it.name || "").replace(/\.[^.]+$/, "")));
+    return preferred || txts[0];
+  }
+
+  // ---------- сеть и API Яндекс Диска ----------
+  function fetchWithTimeout(url, ms){
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms || 12000);
+    return fetch(url, {signal: ctrl.signal, referrerPolicy: "no-referrer", credentials: "omit"})
+      .finally(() => clearTimeout(t));
+  }
+  const PROXIES = [
+    (u) => u,
+    (u) => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+    (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+    (u) => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u),
+  ];
+  async function fetchJsonWithFallback(apiUrl){
+    let lastErr = null;
+    for (const wrap of PROXIES){
+      try{
+        const res = await fetchWithTimeout(wrap(apiUrl), 12000);
+        const text = await res.text();
+        let json = null;
+        try{ json = JSON.parse(text); }catch(e){}
+        if (res.ok && json) return json;
+        if (json && (json.message || json.description)){
+          const err = new Error(json.message || json.description);
+          err.yandex = json;
+          throw err;
+        }
+        lastErr = new Error("HTTP " + res.status);
+      }catch(e){
+        if (e && e.yandex) throw e;
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Не удалось связаться с Яндекс Диском");
+  }
+  function decodeTextBuffer(buf){
+    let text = "";
+    try{
+      text = new TextDecoder("utf-8", {fatal: true}).decode(buf);
+    }catch(e){
+      try{ text = new TextDecoder("windows-1251").decode(buf); }
+      catch(e2){ text = new TextDecoder("utf-8").decode(buf); }
+    }
+    return text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").trim();
+  }
+  async function fetchTextWithFallback(fileUrl){
+    let lastErr = null;
+    for (const wrap of PROXIES){
+      try{
+        const res = await fetchWithTimeout(wrap(fileUrl), 12000);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const buf = await res.arrayBuffer();
+        return decodeTextBuffer(buf);
+      }catch(e){
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Не удалось загрузить текстовый файл");
+  }
+  function yandexErrorText(err){
+    const y = err && err.yandex;
+    const code = y && (y.code || y.error_code || y.error || "");
+    const msg = (err && err.message) || "";
+    if (/DiskNotFound|NotFound/i.test(code + msg)) return "Папка или файл не найдены. Проверьте ссылку на Яндекс Диск и доступ.";
+    if (/Unauthorized|Forbidden|AccessDenied/i.test(code + msg)) return "Доступ закрыт. Проверьте, что у папки каталога включён «Доступ по ссылке».";
+    if (/TooManyRequests|RateLimit/i.test(code + msg)) return "Яндекс временно ограничил запросы. Подождите минуту и нажмите «Обновить».";
+    return msg ? ("Яндекс Диск: " + msg) : "Не удалось получить данные с Яндекс Диска.";
+  }
+
+  const hrefCache = new Map();
+  const HREF_TTL = 20 * 60 * 1000;
+  function getCachedHref(key){
+    const c = hrefCache.get(key);
+    if (c && Date.now() - c.at < HREF_TTL) return c.href;
+    if (c) hrefCache.delete(key);
+    return null;
+  }
+  function setCachedHref(key, href){
+    if (href) hrefCache.set(key, {href, at: Date.now()});
+  }
+
+  async function resolveFolderFile(folderUrl, filePath){
+    const cleanFolder = cleanYandexUrl(folderUrl);
+    const normPath = normalizeDiskPath(filePath);
+    const key = folderFileKey(cleanFolder, normPath);
+    const cached = getCachedHref(key);
+    if (cached) return {href: cached};
+    const dlApi = "https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=" +
+      encodeURIComponent(cleanFolder) + "&path=" + encodeURIComponent(normPath);
+    const dj = await fetchJsonWithFallback(dlApi);
+    if (!dj || !dj.href) throw new Error("Яндекс не вернул прямую ссылку для файла.");
+    setCachedHref(key, dj.href);
+    return {href: dj.href};
+  }
+
+  async function listFolder(folderUrl, path){
+    const cleanFolder = cleanYandexUrl(folderUrl);
+    const normPath = normalizeDiskPath(path || "/");
+    const limit = 100;
+    let allItems = [];
+    let offset = 0;
+    let total = Infinity;
+    let folderName = null;
+    let first = true;
+    for (let guard = 0; guard < 20; guard++){
+      let api = "https://cloud-api.yandex.net/v1/disk/public/resources?public_key=" +
+        encodeURIComponent(cleanFolder) + "&limit=" + limit + "&offset=" + offset;
+      if (normPath && normPath !== "/") api += "&path=" + encodeURIComponent(normPath);
+      const j = await fetchJsonWithFallback(api);
+      if (!j || j.type !== "dir"){
+        throw new Error("Указанная ссылка не является папкой или доступ закрыт.");
+      }
+      if (first){ folderName = j.name || "Каталог"; first = false; }
+      const items = (j._embedded && j._embedded.items) || [];
+      total = (j._embedded && typeof j._embedded.total === "number") ? j._embedded.total : items.length;
+      allItems = allItems.concat(items);
+      offset += items.length;
+      if (items.length === 0 || offset >= total) break;
+    }
+    return {name: folderName, items: allItems, total: total === Infinity ? allItems.length : total};
+  }
+
+  // ---------- буфер обмена / шаринг ----------
+  async function copyTextToClipboard(text){
+    try{
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    }catch(e){}
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    }catch(e){ return false; }
+  }
+  async function shareBook(bookPath){
+    const base = location.origin + location.pathname;
+    const link = bookPath ? (base + "#book=" + encodeURIComponent(normalizeDiskPath(bookPath))) : base;
+    const ok = await copyTextToClipboard(link);
+    if (ok) toast("Ссылка на книгу скопирована");
+    else window.prompt("Скопируйте ссылку:", link);
+  }
+
+  // ---------- треки и прогресс по книгам ----------
+  function getTrack(url){
+    const all = loadTracks();
+    return all[url] || null;
+  }
+  function upsertTrack(url, patch){
+    const all = loadTracks();
+    const prev = all[url] || {};
+    all[url] = Object.assign({}, prev, patch, {url: url, updatedAt: Date.now()});
+    saveTracks(all);
+    return all[url];
+  }
+  function savePosition(){
+    if (!currentUrl) return;
+    if (isLoading) return;
+    const t = audio.currentTime || 0;
+    const d = isFinite(audio.duration) ? audio.duration : (getTrack(currentUrl)?.duration || null);
+    const finished = d && t > d - 10;
+    upsertTrack(currentUrl, {
+      title: currentTitle,
+      size: currentSize,
+      mime: currentMime,
+      duration: d,
+      position: finished ? 0 : t,
+      finished: !!finished,
+      rate: audio.playbackRate,
+      folderUrl: ROOT_URL,
+      folderName: currentFolderName,
+      bookPath: currentBookPath,
+    });
+    renderHistory();
+  }
+
+  // Сводный прогресс по папке-книге
+  function getBookProgress(folder){
+    if (!folder || !folder.audios || !folder.audios.length){
+      return { status: "new", pct: 0, resumeItem: null, resumeTrack: null, finishedCount: 0, totalCount: 0, lastUpdatedAt: 0 };
+    }
+    const allTracks = loadTracks();
+    let finishedCount = 0;
+    let startedCount = 0;
+    let bestTrack = null;
+    let bestItem = null;
+    let pctSum = 0;
+
+    folder.audios.forEach(item => {
+      const key = folderFileKey(ROOT_URL, item.path || (folder.path + "/" + item.name));
+      const tr = allTracks[key];
+      if (!tr) return;
+      if (tr.finished){
+        finishedCount++;
+        pctSum += 1;
+      } else if (tr.position > 5){
+        startedCount++;
+        if (tr.duration && tr.duration > 0){
+          pctSum += Math.min(1, tr.position / tr.duration);
+        } else {
+          pctSum += 0.1;
+        }
+      }
+      if (!bestTrack || (tr.updatedAt || 0) > (bestTrack.updatedAt || 0)){
+        bestTrack = tr;
+        bestItem = item;
+      }
+    });
+
+    const total = folder.audios.length;
+    const pct = total ? Math.round((pctSum / total) * 100) : 0;
+    let status = "new";
+    if (finishedCount === total && total > 0){
+      status = "done";
+    } else if (startedCount > 0 || finishedCount > 0){
+      status = "in_progress";
+    }
+
+    // Если последний файл уже дослушан до конца, но есть следующий — предлагаем следующий
+    let resumeItem = bestItem;
+    let resumeTrack = bestTrack;
+    if (bestTrack && bestTrack.finished && bestItem){
+      const idx = folder.audios.indexOf(bestItem);
+      if (idx >= 0 && idx < folder.audios.length - 1){
+        resumeItem = folder.audios[idx + 1];
+        const nextKey = folderFileKey(ROOT_URL, resumeItem.path || (folder.path + "/" + resumeItem.name));
+        resumeTrack = allTracks[nextKey] || null;
+      }
+    }
+
+    return {
+      status,
+      pct,
+      resumeItem: resumeItem || folder.audios[0],
+      resumeTrack,
+      finishedCount,
+      totalCount: total,
+      lastUpdatedAt: bestTrack ? (bestTrack.updatedAt || 0) : 0,
+    };
+  }
+
+  // ---------- КАТАЛОГ: загрузка, кэш, сканирование ----------
+  function loadCatalogCache(){
+    const c = loadJSON(LS_CATALOG_CACHE, null);
+    if (!c || c.rootUrl !== ROOT_URL || !c.folders) return null;
+    if (Date.now() - (c.cachedAt || 0) > CATALOG_CONFIG.cacheTtlMs) return null;
+    return c;
+  }
+  function saveCatalogCache(){
+    const out = {};
+    foldersByPath.forEach((f, p) => {
+      if (!f.loaded) return;
+      out[p] = {
+        path: f.path,
+        name: f.name,
+        parentPath: f.parentPath,
+        dirs: f.dirs.map(d => ({name: d.name, path: normalizeDiskPath(d.path || ((p === "/" ? "" : p) + "/" + d.name))})),
+        audios: f.audios.map(a => ({name: a.name, path: normalizeDiskPath(a.path || ((p === "/" ? "" : p) + "/" + a.name)), size: a.size, mime_type: a.mime_type})),
+        coverItem: f.coverItem ? {name: f.coverItem.name, path: normalizeDiskPath(f.coverItem.path), mime_type: f.coverItem.mime_type} : null,
+        descItem: f.descItem ? {name: f.descItem.name, path: normalizeDiskPath(f.descItem.path), mime_type: f.descItem.mime_type} : null,
+        descText: f.descLoaded ? f.descText : null,
+        descLoaded: !!f.descLoaded,
+      };
+    });
+    saveJSON(LS_CATALOG_CACHE, { rootUrl: ROOT_URL, cachedAt: Date.now(), folders: out });
+  }
+
+  function createEmptyFolderRecord(path, name){
+    const norm = normalizeDiskPath(path);
+    return {
+      path: norm,
+      name: name || folderNameFromPath(norm),
+      parentPath: parentPath(norm),
+      dirs: [],
+      audios: [],
+      coverItem: null,
+      descItem: null,
+      coverUrl: null,
+      descText: "",
+      descLoaded: false,
+      loaded: false,
+      loading: false,
+      error: null,
+    };
+  }
+
+  async function fetchFolderDetails(path, force){
+    const norm = normalizeDiskPath(path);
+    let rec = foldersByPath.get(norm);
+    if (!rec){
+      rec = createEmptyFolderRecord(norm);
+      foldersByPath.set(norm, rec);
+    }
+    if (rec.loaded && !force) return rec;
+    if (rec._promise && !force) return rec._promise;
+
+    rec.loading = true;
+    rec.error = null;
+    rec._promise = (async () => {
+      try{
+        const res = await listFolder(ROOT_URL, norm);
+        const items = res.items || [];
+        const dirs = items.filter(it => it && it.type === "dir").map(d => ({
+          name: d.name,
+          path: normalizeDiskPath(d.path || ((norm === "/" ? "" : norm) + "/" + d.name)),
+        })).sort(naturalSort);
+        const audios = items.filter(isAudioFileItem).map(a => {
+          const ap = normalizeDiskPath(a.path || ((norm === "/" ? "" : norm) + "/" + a.name));
+          if (a.file) setCachedHref(folderFileKey(ROOT_URL, ap), a.file);
+          return { name: a.name, path: ap, size: a.size, mime_type: a.mime_type };
+        }).sort(naturalSort);
+        const coverRaw = pickCoverItem(items);
+        const descRaw = pickDescItem(items);
+
+        rec.name = (norm === "/" ? (res.name || CATALOG_CONFIG.title) : (res.name || rec.name));
+        rec.dirs = dirs;
+        rec.audios = audios;
+        rec.coverItem = coverRaw ? {
+          name: coverRaw.name,
+          path: normalizeDiskPath(coverRaw.path || ((norm === "/" ? "" : norm) + "/" + coverRaw.name)),
+          mime_type: coverRaw.mime_type,
+        } : null;
+        if (coverRaw && coverRaw.file && rec.coverItem){
+          setCachedHref(folderFileKey(ROOT_URL, rec.coverItem.path), coverRaw.file);
+          rec.coverUrl = coverRaw.file;
+        }
+        rec.descItem = descRaw ? {
+          name: descRaw.name,
+          path: normalizeDiskPath(descRaw.path || ((norm === "/" ? "" : norm) + "/" + descRaw.name)),
+          mime_type: descRaw.mime_type,
+        } : null;
+        if (descRaw && descRaw.file && rec.descItem){
+          setCachedHref(folderFileKey(ROOT_URL, rec.descItem.path), descRaw.file);
+        }
+        rec.loaded = true;
+
+        // Регистрируем дочерние подпапки в карте
+        dirs.forEach(d => {
+          if (!foldersByPath.has(d.path)){
+            foldersByPath.set(d.path, createEmptyFolderRecord(d.path, d.name));
+          }
+        });
+
+        saveCatalogCache();
+        return rec;
+      }catch(err){
+        rec.error = yandexErrorText(err);
+        throw err;
+      }finally{
+        rec.loading = false;
+        rec._promise = null;
+      }
+    })();
+
+    return rec._promise;
+  }
+
+  async function ensureFolderCoverUrl(rec, forceFresh){
+    if (!rec || !rec.coverItem) return null;
+    const key = folderFileKey(ROOT_URL, rec.coverItem.path);
+    if (!forceFresh){
+      const cached = getCachedHref(key);
+      if (cached){ rec.coverUrl = cached; return cached; }
+    } else {
+      hrefCache.delete(key);
+    }
+    try{
+      const r = await resolveFolderFile(ROOT_URL, rec.coverItem.path);
+      rec.coverUrl = r.href;
+      return r.href;
+    }catch(e){
+      return null;
+    }
+  }
+
+  async function ensureFolderDescription(rec){
+    if (!rec) return "";
+    if (rec.descLoaded) return rec.descText || "";
+    if (!rec.descItem){
+      rec.descLoaded = true;
+      rec.descText = "";
+      return "";
+    }
+    if (rec._descPromise) return rec._descPromise;
+    rec._descPromise = (async () => {
+      try{
+        const r = await resolveFolderFile(ROOT_URL, rec.descItem.path);
+        const text = await fetchTextWithFallback(r.href);
+        rec.descText = text;
+        rec.descLoaded = true;
+        saveCatalogCache();
+        return text;
+      }catch(e){
+        rec.descLoaded = true;
+        rec.descText = "";
+        return "";
+      }finally{
+        rec._descPromise = null;
+      }
+    })();
+    return rec._descPromise;
+  }
+
+  function scheduleCatalogRender(){
+    if (catalogRenderTimer) return;
+    catalogRenderTimer = setTimeout(() => {
+      catalogRenderTimer = null;
+      if (activeView === "catalog") renderCatalog();
+    }, 90);
+  }
+
+  // Фоновый сканер папок с ограничением параллельных запросов
+  let scanToken = 0;
+  async function loadCatalog(force){
+    const myToken = ++scanToken;
+    if (force){
+      foldersByPath.clear();
+      hrefCache.clear();
+      try{ localStorage.removeItem(LS_CATALOG_CACHE); }catch(e){}
+      catalogRootLoaded = false;
+    }
+
+    // Попытка восстановить из кэша для мгновенного старта
+    if (!force && !catalogRootLoaded){
+      const cached = loadCatalogCache();
+      if (cached && cached.folders && cached.folders["/"]){
+        Object.keys(cached.folders).forEach(p => {
+          const cf = cached.folders[p];
+          const rec = createEmptyFolderRecord(cf.path, cf.name);
+          rec.dirs = cf.dirs || [];
+          rec.audios = cf.audios || [];
+          rec.coverItem = cf.coverItem || null;
+          rec.descItem = cf.descItem || null;
+          rec.descText = cf.descText || "";
+          rec.descLoaded = !!cf.descLoaded;
+          rec.loaded = true;
+          foldersByPath.set(p, rec);
+        });
+        catalogRootLoaded = true;
+        renderCatalog();
+        // Подгрузим обложки из кэшированных папок
+        hydrateVisibleCatalogAssets(myToken);
+        return;
+      }
+    }
+
+    setStatusBox(catalogStatus, '<span class="spinner" aria-hidden="true"></span><span>Загружаем каталог аудиокниг с Яндекс Диска…</span>');
+    try{
+      const rootRec = await fetchFolderDetails("/", force);
+      if (myToken !== scanToken) return;
+      catalogRootLoaded = true;
+      setStatusBox(catalogStatus, "");
+      renderCatalog();
+
+      // Собираем очередь дочерних папок на инспекцию (и их подпапок на глубину до 2 уровней)
+      const queue = rootRec.dirs.map(d => d.path);
+      const visited = new Set(["/"]);
+      const CONCURRENCY = 3;
+
+      async function worker(){
+        while (queue.length && myToken === scanToken){
+          const path = queue.shift();
+          if (visited.has(path)) continue;
+          visited.add(path);
+          try{
+            const rec = await fetchFolderDetails(path, force);
+            if (myToken !== scanToken) return;
+            // Если внутри есть подпапки (например, раздел/цикл -> тома/книги), добавляем их в очередь
+            const depth = path.split("/").filter(Boolean).length;
+            if (rec.dirs.length && depth < 3){
+              rec.dirs.forEach(sub => {
+                if (!visited.has(sub.path)) queue.push(sub.path);
+              });
+            }
+            // Подгружаем обложку и описание для книг (а также для папок, у которых они есть)
+            if (rec.coverItem) await ensureFolderCoverUrl(rec, false);
+            if (rec.descItem && !rec.descLoaded) await ensureFolderDescription(rec);
+            scheduleCatalogRender();
+          }catch(e){
+            scheduleCatalogRender();
+          }
+        }
+      }
+
+      const workers = [];
+      for (let i = 0; i < CONCURRENCY; i++) workers.push(worker());
+      await Promise.all(workers);
+
+      if (myToken !== scanToken) return;
+      // Если в корне есть обложка/описание (редкий случай аудио прямо в корне)
+      if (rootRec.coverItem) await ensureFolderCoverUrl(rootRec, false);
+      if (rootRec.descItem && !rootRec.descLoaded) await ensureFolderDescription(rootRec);
+      renderCatalog();
+    }catch(err){
+      if (myToken !== scanToken) return;
+      const msg = yandexErrorText(err);
+      setStatusBox(catalogStatus, '<span>⚠</span><span>' + escapeHtml(msg) + '</span>', "error");
+    }
+  }
+
+  async function hydrateVisibleCatalogAssets(myToken){
+    const list = Array.from(foldersByPath.values()).filter(f => f.path !== "/" && f.loaded);
+    const queue = list.slice();
+    const CONCURRENCY = 4;
+    async function worker(){
+      while (queue.length && myToken === scanToken){
+        const rec = queue.shift();
+        if (rec.coverItem && !rec.coverUrl){
+          await ensureFolderCoverUrl(rec, false);
+          scheduleCatalogRender();
+        }
+        if (rec.descItem && !rec.descLoaded){
+          await ensureFolderDescription(rec);
+          scheduleCatalogRender();
+        }
+      }
+    }
+    const workers = [];
+    for (let i = 0; i < CONCURRENCY; i++) workers.push(worker());
+    await Promise.all(workers);
+  }
+
+  // ---------- КАТАЛОГ: рендер ----------
+  function updateViewToggleUI(){
+    viewGridBtn.classList.toggle("active", catalogViewMode === "grid");
+    viewListBtn.classList.toggle("active", catalogViewMode === "list");
+  }
+
+  function renderContinueShelf(){
+    const booksWithProgress = [];
+    foldersByPath.forEach(rec => {
+      if (!rec.loaded) return;
+      if (!rec.audios.length) return;
+      const prog = getBookProgress(rec);
+      if (prog.status === "in_progress" && prog.lastUpdatedAt > 0){
+        booksWithProgress.push({ rec, prog });
+      }
+    });
+    booksWithProgress.sort((a, b) => b.prog.lastUpdatedAt - a.prog.lastUpdatedAt);
+    const top = booksWithProgress.slice(0, 3);
+    if (!top.length){
+      continueShelf.classList.add("hidden");
+      continueShelfGrid.innerHTML = "";
+      return;
+    }
+    continueShelf.classList.remove("hidden");
+    continueShelfGrid.innerHTML = "";
+    top.forEach(({rec, prog}) => {
+      const card = document.createElement("div");
+      card.className = "shelf-item";
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+
+      const thumb = document.createElement("div");
+      thumb.className = "shelf-thumb";
+      if (rec.coverUrl){
+        const img = document.createElement("img");
+        img.alt = "";
+        img.referrerPolicy = "no-referrer";
+        img.src = rec.coverUrl;
+        thumb.appendChild(img);
+      } else {
+        thumb.textContent = "🎧";
+      }
+
+      const info = document.createElement("div");
+      info.className = "shelf-info";
+      const t = document.createElement("div");
+      t.className = "shelf-title";
+      t.textContent = rec.name;
+      const m = document.createElement("div");
+      m.className = "shelf-meta";
+      const chName = prog.resumeItem ? prog.resumeItem.name : "";
+      const posStr = (prog.resumeTrack && prog.resumeTrack.position > 5)
+        ? (" · " + formatTime(prog.resumeTrack.position))
+        : "";
+      m.textContent = chName + posStr;
+      const bar = document.createElement("div");
+      bar.className = "mini-progress";
+      const fill = document.createElement("div");
+      fill.style.width = prog.pct + "%";
+      bar.appendChild(fill);
+      info.appendChild(t); info.appendChild(m); info.appendChild(bar);
+
+      const play = document.createElement("button");
+      play.type = "button";
+      play.className = "shelf-play";
+      play.title = "Продолжить прослушивание";
+      play.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+      play.addEventListener("click", (e) => {
+        e.stopPropagation();
+        startBookPlayback(rec.path, prog.resumeItem, true);
+      });
+
+      card.appendChild(thumb);
+      card.appendChild(info);
+      card.appendChild(play);
+      card.addEventListener("click", () => navigateTo("book", { path: rec.path }));
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " "){ e.preventDefault(); navigateTo("book", { path: rec.path }); }
+      });
+      continueShelfGrid.appendChild(card);
+    });
+  }
+
+  function matchesCatalogFilter(rec){
+    if (catalogSearchQuery){
+      const q = catalogSearchQuery.toLowerCase();
+      const inName = (rec.name || "").toLowerCase().includes(q);
+      const inDesc = (rec.descText || "").toLowerCase().includes(q);
+      const inSub = (rec.dirs || []).some(d => (d.name || "").toLowerCase().includes(q));
+      if (!inName && !inDesc && !inSub) return false;
+    }
+    if (catalogStatusFilter !== "all"){
+      const prog = getBookProgress(rec);
+      if (rec.audios.length === 0){
+        // Папка-контейнер проходит только если хотя бы одна подпапка проходит
+        return (rec.dirs || []).some(d => {
+          const sub = foldersByPath.get(d.path);
+          return sub ? matchesCatalogFilter(sub) : false;
+        });
+      }
+      if (prog.status !== catalogStatusFilter) return false;
+    }
+    return true;
+  }
+
+  function buildBookCard(rec){
+    const card = document.createElement("article");
+    card.className = "book-card";
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", "Открыть книгу: " + rec.name);
+
+    const coverWrap = document.createElement("div");
+    coverWrap.className = "book-cover-wrap";
+
+    const fallback = document.createElement("div");
+    fallback.className = "book-cover-fallback";
+    fallback.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM9 4h2v5l-1-.75L9 9V4zm9 16H6V4h1v9l3-2.25L13 13V4h5v16z"/></svg><span></span>';
+    fallback.querySelector("span").textContent = rec.name;
+    coverWrap.appendChild(fallback);
+
+    if (rec.coverUrl){
+      const img = document.createElement("img");
+      img.alt = rec.name;
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.src = rec.coverUrl;
+      img.addEventListener("load", () => img.classList.add("loaded"));
+      img.addEventListener("error", async () => {
+        if (img.dataset.retried) return;
+        img.dataset.retried = "1";
+        const fresh = await ensureFolderCoverUrl(rec, true);
+        if (fresh) img.src = fresh;
+      });
+      coverWrap.appendChild(img);
+    }
+
+    const scrim = document.createElement("div");
+    scrim.className = "cover-scrim";
+    coverWrap.appendChild(scrim);
+
+    // Бейдж количества треков / подпапок
+    const audioCount = rec.audios ? rec.audios.length : 0;
+    const dirCount = rec.dirs ? rec.dirs.length : 0;
+    if (audioCount > 0 || dirCount > 0 || !rec.loaded){
+      const badge = document.createElement("div");
+      badge.className = "cover-badge-tr";
+      if (!rec.loaded){
+        badge.textContent = "…";
+      } else if (audioCount > 0 && dirCount > 0){
+        badge.textContent = audioCount + " " + plural(audioCount, "файл", "файла", "файлов") + " · " + dirCount + " пап.";
+      } else if (audioCount > 0){
+        badge.textContent = audioCount + " " + plural(audioCount, "файл", "файла", "файлов");
+      } else {
+        badge.textContent = "📁 " + dirCount + " " + plural(dirCount, "папка", "папки", "папок");
+      }
+      coverWrap.appendChild(badge);
+    }
+
+    // Бейдж прогресса
+    const prog = getBookProgress(rec);
+    if (prog.status === "done"){
+      const b = document.createElement("div");
+      b.className = "cover-badge-bl done";
+      b.textContent = "✓ Прослушано";
+      coverWrap.appendChild(b);
+    } else if (prog.status === "in_progress"){
+      const b = document.createElement("div");
+      b.className = "cover-badge-bl";
+      b.textContent = prog.pct + "%";
+      coverWrap.appendChild(b);
+      const pwrap = document.createElement("div");
+      pwrap.className = "cover-progress";
+      const pfill = document.createElement("div");
+      pfill.style.width = prog.pct + "%";
+      pwrap.appendChild(pfill);
+      coverWrap.appendChild(pwrap);
+    }
+
+    const body = document.createElement("div");
+    body.className = "book-card-body";
+    const title = document.createElement("div");
+    title.className = "book-card-title";
+    title.textContent = rec.name;
+    title.title = rec.name;
+    body.appendChild(title);
+
+    const desc = document.createElement("div");
+    desc.className = "book-card-desc";
+    if (!rec.loaded || (rec.descItem && !rec.descLoaded)){
+      desc.classList.add("loading-text");
+      desc.textContent = "Загружаем описание…";
+    } else if (rec.descText){
+      desc.textContent = rec.descText.replace(/\s+/g, " ").trim();
+    } else if (dirCount > 0 && audioCount === 0){
+      desc.textContent = "Раздел · " + dirCount + " " + plural(dirCount, "подпапка", "подпапки", "подпапок");
+    } else {
+      desc.textContent = audioCount > 0 ? "Нажмите, чтобы открыть описание и слушать" : "Пустая папка";
+    }
+    body.appendChild(desc);
+
+    // Если в папке книги есть и аудио, и подпапки — по умолчанию подпапки свёрнуты, разворачиваются по клику
+    if (dirCount > 0 && audioCount > 0){
+      const subWrap = document.createElement("div");
+      subWrap.className = "book-card-sublinks";
+      const subToggle = document.createElement("button");
+      subToggle.type = "button";
+      subToggle.className = "sublink-pill";
+      subToggle.textContent = "📁 Подпапки (" + dirCount + ") ▾";
+      const subList = document.createElement("div");
+      subList.className = "book-card-sublinks hidden";
+      subList.style.width = "100%";
+      subList.style.paddingTop = "2px";
+      rec.dirs.forEach(sub => {
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "sublink-pill";
+        pill.textContent = "📁 " + sub.name;
+        pill.addEventListener("click", (e) => {
+          e.stopPropagation();
+          navigateTo("book", { path: sub.path });
+        });
+        subList.appendChild(pill);
+      });
+      subToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = subList.classList.toggle("hidden");
+        subToggle.textContent = open
+          ? ("📁 Подпапки (" + dirCount + ") ▾")
+          : ("📁 Подпапки (" + dirCount + ") ▴");
+      });
+      subWrap.appendChild(subToggle);
+      subWrap.appendChild(subList);
+      body.appendChild(subWrap);
+    }
+
+    card.appendChild(coverWrap);
+    card.appendChild(body);
+    const open = () => navigateTo("book", { path: rec.path });
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " "){ e.preventDefault(); open(); }
+    });
+    return card;
+  }
+
+  function renderCatalog(){
+    renderContinueShelf();
+    const rootRec = foldersByPath.get("/");
+    if (!rootRec || !rootRec.loaded){
+      catalogContent.innerHTML = "";
+      catalogStats.textContent = "";
+      catalogCategoryChips.classList.add("hidden");
+      return;
+    }
+
+    const rootDirs = rootRec.dirs.map(d => foldersByPath.get(d.path) || createEmptyFolderRecord(d.path, d.name));
+    // Разделяем корневые папки на:
+    // 1) Секции (папки, у которых есть подпапки и нет собственных аудиофайлов — например, жанры/авторы/серии)
+    // 2) Обычные папки-книги (у которых есть аудиофайлы, или они ещё грузятся, или пустые/с описанием без подпапок)
+    const sectionDirs = rootDirs.filter(r => r.loaded && r.dirs.length > 0 && r.audios.length === 0);
+    const directBookDirs = rootDirs.filter(r => !(r.loaded && r.dirs.length > 0 && r.audios.length === 0));
+
+    // Чипы разделов (если есть секции)
+    if (sectionDirs.length > 0){
+      catalogCategoryChips.classList.remove("hidden");
+      catalogCategoryChips.innerHTML = "";
+      const allChip = document.createElement("button");
+      allChip.type = "button";
+      allChip.className = "chip cat-chip" + (catalogCategoryFilter === "all" ? " active" : "");
+      allChip.textContent = "Все разделы";
+      allChip.addEventListener("click", () => { catalogCategoryFilter = "all"; renderCatalog(); });
+      catalogCategoryChips.appendChild(allChip);
+
+      if (directBookDirs.length > 0){
+        const rootBooksChip = document.createElement("button");
+        rootBooksChip.type = "button";
+        rootBooksChip.className = "chip cat-chip" + (catalogCategoryFilter === "__root_books__" ? " active" : "");
+        rootBooksChip.textContent = "Книги без раздела";
+        rootBooksChip.addEventListener("click", () => { catalogCategoryFilter = "__root_books__"; renderCatalog(); });
+        catalogCategoryChips.appendChild(rootBooksChip);
+      }
+
+      sectionDirs.forEach(sec => {
+        const c = document.createElement("button");
+        c.type = "button";
+        c.className = "chip cat-chip" + (catalogCategoryFilter === sec.path ? " active" : "");
+        c.textContent = "📁 " + sec.name;
+        c.addEventListener("click", () => {
+          catalogCategoryFilter = sec.path;
+          expandedSections.add(sec.path);
+          renderCatalog();
+        });
+        catalogCategoryChips.appendChild(c);
+      });
+    } else {
+      catalogCategoryFilter = "all";
+      catalogCategoryChips.classList.add("hidden");
+      catalogCategoryChips.innerHTML = "";
+    }
+
+    catalogContent.innerHTML = "";
+    let totalVisibleCards = 0;
+    const gridClass = "book-grid" + (catalogViewMode === "list" ? " list-mode" : "");
+
+    // Если в корневом каталоге лежат аудиофайлы напрямую
+    if (rootRec.audios.length > 0 && (catalogCategoryFilter === "all" || catalogCategoryFilter === "__root_books__")){
+      if (matchesCatalogFilter(rootRec)){
+        const sec = document.createElement("div");
+        sec.className = "catalog-section";
+        const grid = document.createElement("div");
+        grid.className = gridClass;
+        grid.appendChild(buildBookCard(rootRec));
+        sec.appendChild(grid);
+        catalogContent.appendChild(sec);
+        totalVisibleCards++;
+      }
+    }
+
+    // 1. Папки верхнего уровня (книги в корне)
+    if (directBookDirs.length > 0 && (catalogCategoryFilter === "all" || catalogCategoryFilter === "__root_books__")){
+      const filtered = directBookDirs.filter(matchesCatalogFilter);
+      if (filtered.length > 0){
+        const sec = document.createElement("div");
+        sec.className = "catalog-section";
+        if (sectionDirs.length > 0){
+          const head = document.createElement("div");
+          head.className = "section-head";
+          head.innerHTML = '<h3>📚 Книги</h3><span class="section-count">' + filtered.length + '</span>';
+          sec.appendChild(head);
+        }
+        const grid = document.createElement("div");
+        grid.className = gridClass;
+        filtered.forEach(rec => {
+          grid.appendChild(buildBookCard(rec));
+          totalVisibleCards++;
+        });
+        sec.appendChild(grid);
+        catalogContent.appendChild(sec);
+      }
+    }
+
+    // 2. Разделы (папки с подпапками) — по умолчанию свёрнуты
+    const autoExpand = !!catalogSearchQuery || catalogStatusFilter !== "all";
+    sectionDirs.forEach(secRec => {
+      if (catalogCategoryFilter !== "all" && catalogCategoryFilter !== secRec.path) return;
+      const subRecs = secRec.dirs.map(d => foldersByPath.get(d.path) || createEmptyFolderRecord(d.path, d.name));
+      const secTitleMatch = catalogSearchQuery && (secRec.name || "").toLowerCase().includes(catalogSearchQuery.toLowerCase());
+      const filteredSubs = secTitleMatch ? subRecs.filter(r => {
+        if (catalogStatusFilter === "all") return true;
+        return getBookProgress(r).status === catalogStatusFilter;
+      }) : subRecs.filter(matchesCatalogFilter);
+
+      if (!filteredSubs.length) return;
+
+      const isCollapsed = !(expandedSections.has(secRec.path) || autoExpand);
+      const sec = document.createElement("div");
+      sec.className = "catalog-section" + (isCollapsed ? " collapsed" : "");
+
+      const head = document.createElement("div");
+      head.className = "section-head collapsible";
+      const h3 = document.createElement("h3");
+      h3.textContent = "📁 " + secRec.name;
+      const cnt = document.createElement("span");
+      cnt.className = "section-count";
+      cnt.textContent = filteredSubs.length + " " + plural(filteredSubs.length, "подпапка", "подпапки", "подпапок");
+
+      const acts = document.createElement("div");
+      acts.className = "section-actions";
+      if (secRec.coverItem || secRec.descItem){
+        const openSecBtn = document.createElement("button");
+        openSecBtn.type = "button";
+        openSecBtn.className = "btn btn-sm btn-ghost";
+        openSecBtn.textContent = "О разделе";
+        openSecBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          navigateTo("book", { path: secRec.path });
+        });
+        acts.appendChild(openSecBtn);
+      }
+      const toggleBtn = document.createElement("button");
+      toggleBtn.type = "button";
+      toggleBtn.className = "btn btn-sm";
+      toggleBtn.textContent = isCollapsed ? "Развернуть ▾" : "Свернуть ▴";
+      const toggleSection = (e) => {
+        if (e) e.stopPropagation();
+        if (expandedSections.has(secRec.path)) expandedSections.delete(secRec.path);
+        else expandedSections.add(secRec.path);
+        renderCatalog();
+      };
+      toggleBtn.addEventListener("click", toggleSection);
+      head.addEventListener("click", toggleSection);
+
+      acts.appendChild(toggleBtn);
+      head.appendChild(h3);
+      head.appendChild(cnt);
+      head.appendChild(acts);
+      sec.appendChild(head);
+
+      if (!isCollapsed){
+        const grid = document.createElement("div");
+        grid.className = gridClass;
+        filteredSubs.forEach(sub => {
+          grid.appendChild(buildBookCard(sub));
+          totalVisibleCards++;
+        });
+        sec.appendChild(grid);
+      } else {
+        totalVisibleCards += filteredSubs.length;
+      }
+      catalogContent.appendChild(sec);
+    });
+
+    if (totalVisibleCards === 0){
+      const empty = document.createElement("section");
+      empty.className = "card";
+      empty.innerHTML = '<p class="empty" style="margin:0; text-align:center; padding:18px 8px">' +
+        (catalogSearchQuery || catalogStatusFilter !== "all" || catalogCategoryFilter !== "all"
+          ? 'По выбранным фильтрам ничего не найдено. <button type="button" class="btn btn-sm" id="resetFiltersBtn" style="margin-left:8px">Сбросить фильтры</button>'
+          : 'В папке каталога пока нет папок с аудиокнигами.') +
+        '</p>';
+      catalogContent.appendChild(empty);
+      const resetBtn = $("#resetFiltersBtn", empty);
+      if (resetBtn){
+        resetBtn.addEventListener("click", () => {
+          catalogSearchQuery = "";
+          catalogSearch.value = "";
+          catalogSearchClear.classList.add("hidden");
+          catalogStatusFilter = "all";
+          catalogCategoryFilter = "all";
+          $$("[data-status-filter]", catalogFilters).forEach(b => b.classList.toggle("active", b.getAttribute("data-status-filter") === "all"));
+          renderCatalog();
+        });
+      }
+    }
+
+    catalogStats.textContent = "Показано: " + totalVisibleCards;
+  }
+
+  // ---------- СТРАНИЦА КНИГИ ----------
+  async function openBookPage(bookPath){
+    const norm = normalizeDiskPath(bookPath || "/");
+    activeBookPath = norm;
+    showView("book");
+
+    // Хлебные крошки
+    renderBookBreadcrumbs(norm);
+
+    let rec = foldersByPath.get(norm);
+    if (!rec){
+      rec = createEmptyFolderRecord(norm);
+      foldersByPath.set(norm, rec);
+    }
+
+    renderBookDetailContent(rec);
+    setStatusBox(bookStatus, "");
+
+    if (!rec.loaded){
+      setStatusBox(bookStatus, '<span class="spinner" aria-hidden="true"></span><span>Загружаем содержимое книги…</span>');
+      try{
+        rec = await fetchFolderDetails(norm, false);
+        if (activeView !== "book" || activeBookPath !== norm) return;
+        setStatusBox(bookStatus, "");
+        renderBookDetailContent(rec);
+      }catch(err){
+        if (activeView !== "book" || activeBookPath !== norm) return;
+        setStatusBox(bookStatus, '<span>⚠</span><span>' + escapeHtml(yandexErrorText(err)) + '</span>', "error");
+        return;
+      }
+    }
+
+    // Догружаем обложку и описание, если ещё не загружены
+    const tasks = [];
+    if (rec.coverItem && !rec.coverUrl){
+      tasks.push(ensureFolderCoverUrl(rec, false).then(() => {
+        if (activeView === "book" && activeBookPath === norm) renderBookDetailContent(rec);
+      }));
+    }
+    if (rec.descItem && !rec.descLoaded){
+      tasks.push(ensureFolderDescription(rec).then(() => {
+        if (activeView === "book" && activeBookPath === norm) renderBookDetailContent(rec);
+      }));
+    }
+    if (tasks.length) await Promise.all(tasks);
+
+    // Если в книге есть подпапки, в фоне подгрузим их обложки
+    if (rec.dirs && rec.dirs.length){
+      for (const d of rec.dirs){
+        if (activeView !== "book" || activeBookPath !== norm) break;
+        const sub = foldersByPath.get(d.path);
+        if (!sub || !sub.loaded){
+          try{
+            const loadedSub = await fetchFolderDetails(d.path, false);
+            if (loadedSub.coverItem) await ensureFolderCoverUrl(loadedSub, false);
+            if (loadedSub.descItem && !loadedSub.descLoaded) await ensureFolderDescription(loadedSub);
+            if (activeView === "book" && activeBookPath === norm) renderBookSubfolders(rec);
+          }catch(e){}
+        }
+      }
+    }
+  }
+
+  function renderBookBreadcrumbs(norm){
+    bookBreadcrumbs.innerHTML = "";
+    const rootBtn = document.createElement("button");
+    rootBtn.type = "button";
+    rootBtn.textContent = "Каталог";
+    rootBtn.addEventListener("click", () => navigateTo("catalog"));
+    bookBreadcrumbs.appendChild(rootBtn);
+
+    const parts = norm.split("/").filter(Boolean);
+    let acc = "";
+    parts.forEach((seg, idx) => {
+      const sep = document.createElement("span");
+      sep.className = "bc-sep";
+      sep.textContent = "›";
+      bookBreadcrumbs.appendChild(sep);
+      acc += "/" + seg;
+      const targetPath = acc;
+      if (idx === parts.length - 1){
+        const cur = document.createElement("span");
+        cur.className = "bc-current";
+        cur.textContent = seg;
+        bookBreadcrumbs.appendChild(cur);
+      } else {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = seg;
+        b.addEventListener("click", () => navigateTo("book", { path: targetPath }));
+        bookBreadcrumbs.appendChild(b);
+      }
+    });
+  }
+
+  function renderBookDetailContent(rec){
+    bookTitleEl.textContent = rec.name || "Книга";
+    const pp = parentPath(rec.path);
+    if (pp && pp !== "/"){
+      bookParentTag.textContent = "📁 " + folderNameFromPath(pp);
+      bookParentTag.classList.remove("hidden");
+    } else {
+      bookParentTag.classList.add("hidden");
+    }
+
+    // Обложка и размытый фон
+    if (rec.coverUrl){
+      bookHeroBg.style.backgroundImage = 'url("' + rec.coverUrl.replace(/"/g, '\\"') + '")';
+      bookHeroCover.innerHTML = '';
+      const img = document.createElement("img");
+      img.alt = rec.name || "Обложка";
+      img.referrerPolicy = "no-referrer";
+      img.src = rec.coverUrl;
+      img.addEventListener("error", async () => {
+        if (img.dataset.retried) return;
+        img.dataset.retried = "1";
+        const fresh = await ensureFolderCoverUrl(rec, true);
+        if (fresh){
+          img.src = fresh;
+          bookHeroBg.style.backgroundImage = 'url("' + fresh.replace(/"/g, '\\"') + '")';
+        }
+      });
+      bookHeroCover.appendChild(img);
+    } else {
+      bookHeroBg.style.backgroundImage = "none";
+      bookHeroCover.innerHTML = '<div class="hero-fallback"><svg viewBox="0 0 24 24"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM9 4h2v5l-1-.75L9 9V4zm9 16H6V4h1v9l3-2.25L13 13V4h5v16z"/></svg><span>' +
+        escapeHtml(rec.coverItem ? "Загружаем обложку…" : "Обложка отсутствует") + '</span></div>';
+    }
+
+    // Мета-пилюли
+    bookMetaPills.innerHTML = "";
+    const audios = rec.audios || [];
+    const dirs = rec.dirs || [];
+    if (audios.length){
+      const totalSize = audios.reduce((s, a) => s + (a.size || 0), 0);
+      const p1 = document.createElement("span");
+      p1.className = "meta-pill";
+      p1.textContent = "🎵 " + audios.length + " " + plural(audios.length, "аудиофайл", "аудиофайла", "аудиофайлов");
+      bookMetaPills.appendChild(p1);
+      if (totalSize > 0){
+        const p2 = document.createElement("span");
+        p2.className = "meta-pill";
+        p2.textContent = "💾 " + formatSize(totalSize);
+        bookMetaPills.appendChild(p2);
+      }
+    }
+    if (dirs.length){
+      const p3 = document.createElement("span");
+      p3.className = "meta-pill";
+      p3.textContent = "📁 " + dirs.length + " " + plural(dirs.length, "подпапка", "подпапки", "подпапок");
+      bookMetaPills.appendChild(p3);
+    }
+
+    const prog = getBookProgress(rec);
+    if (prog.status === "in_progress"){
+      const pm = document.createElement("span");
+      pm.className = "meta-pill resume";
+      const posTxt = (prog.resumeTrack && prog.resumeTrack.position > 5)
+        ? (" · " + formatTime(prog.resumeTrack.position))
+        : "";
+      pm.textContent = "▶ Прогресс " + prog.pct + "%" + posTxt;
+      bookMetaPills.appendChild(pm);
+    } else if (prog.status === "done"){
+      const pm = document.createElement("span");
+      pm.className = "meta-pill done";
+      pm.textContent = "✓ Прослушано";
+      bookMetaPills.appendChild(pm);
+    }
+
+    // Кнопка «Слушать»
+    if (audios.length > 0){
+      bookListenBtn.classList.remove("hidden");
+      bookListenBtn.disabled = false;
+      if (prog.status === "in_progress" && prog.resumeItem){
+        const pos = (prog.resumeTrack && prog.resumeTrack.position > 5) ? (" (" + formatTime(prog.resumeTrack.position) + ")") : "";
+        bookListenText.textContent = "Продолжить прослушивание" + pos;
+        bookStartOverBtn.classList.remove("hidden");
+      } else {
+        bookListenText.textContent = "Слушать";
+        bookStartOverBtn.classList.add("hidden");
+      }
+    } else if (!rec.loaded){
+      bookListenBtn.classList.remove("hidden");
+      bookListenBtn.disabled = true;
+      bookListenText.textContent = "Загрузка…";
+      bookStartOverBtn.classList.add("hidden");
+    } else {
+      bookListenBtn.classList.add("hidden");
+      bookStartOverBtn.classList.add("hidden");
+    }
+
+    // Описание
+    if (!rec.loaded || (rec.descItem && !rec.descLoaded)){
+      bookDescText.classList.add("empty-desc");
+      bookDescText.textContent = "Загружаем описание…";
+    } else if (rec.descText){
+      bookDescText.classList.remove("empty-desc");
+      bookDescText.textContent = rec.descText;
+    } else {
+      bookDescText.classList.add("empty-desc");
+      bookDescText.textContent = "Текстовое описание в этой папке не найдено.";
+    }
+
+    renderBookSubfolders(rec);
+    renderBookChapters(rec);
+  }
+
+  function renderBookSubfolders(rec){
+    const dirs = rec.dirs || [];
+    if (!dirs.length){
+      bookSubfoldersCard.classList.add("hidden");
+      bookSubfoldersGrid.innerHTML = "";
+      return;
+    }
+    bookSubfoldersCard.classList.remove("hidden");
+    bookSubfoldersCount.textContent = dirs.length + " " + plural(dirs.length, "подпапка", "подпапки", "подпапок");
+    bookSubfoldersGrid.innerHTML = "";
+    dirs.forEach(d => {
+      const subRec = foldersByPath.get(d.path) || createEmptyFolderRecord(d.path, d.name);
+      bookSubfoldersGrid.appendChild(buildBookCard(subRec));
+    });
+  }
+
+  function renderBookChapters(rec){
+    const audios = rec.audios || [];
+    if (!audios.length){
+      bookChaptersCard.classList.add("hidden");
+      bookChaptersList.innerHTML = "";
+      return;
+    }
+    bookChaptersCard.classList.remove("hidden");
+    bookChaptersCount.textContent = audios.length + " " + plural(audios.length, "файл", "файла", "файлов");
+    bookChaptersList.innerHTML = "";
+
+    audios.forEach((item, idx) => {
+      const key = folderFileKey(ROOT_URL, item.path);
+      const savedTrack = getTrack(key);
+      const el = document.createElement("div");
+      el.className = "playlist-item" + (key === currentUrl ? " current" : "");
+      el.setAttribute("role", "button");
+      const metaParts = [];
+      if (item.size) metaParts.push(formatSize(item.size));
+      if (savedTrack && savedTrack.duration) metaParts.push(formatTime(savedTrack.duration));
+      if (savedTrack && savedTrack.position > 5 && savedTrack.duration) metaParts.push("остановка " + formatTime(savedTrack.position));
+      if (savedTrack && savedTrack.finished) metaParts.push("прослушан ✓");
+
+      el.innerHTML = '<div class="num">' + (idx + 1) + '</div>' +
+        '<div class="info"><div class="title"></div><div class="meta"></div><div class="mini-progress"><div></div></div></div>' +
+        '<div class="actions"><button class="icon-btn" type="button" title="Слушать в плеере"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div>';
+      el.querySelector(".title").textContent = item.name || ("Файл " + (idx + 1));
+      el.querySelector(".meta").textContent = metaParts.join(" · ") || "Аудиофайл";
+      const pct = (savedTrack && savedTrack.duration && savedTrack.position)
+        ? Math.min(100, (savedTrack.position / savedTrack.duration) * 100)
+        : (savedTrack && savedTrack.finished ? 100 : 0);
+      el.querySelector(".mini-progress > div").style.width = pct + "%";
+
+      el.addEventListener("click", () => startBookPlayback(rec.path, item, true));
+      bookChaptersList.appendChild(el);
+    });
+  }
+
+  async function startBookPlayback(bookPath, targetItem, autoplay){
+    const norm = normalizeDiskPath(bookPath || "/");
+    let rec = foldersByPath.get(norm);
+    if (!rec || !rec.loaded){
+      rec = await fetchFolderDetails(norm, false);
+    }
+    if (!rec || !rec.audios || !rec.audios.length){
+      toast("В этой папке нет аудиофайлов", true);
+      return;
+    }
+    if (rec.coverItem && !rec.coverUrl){
+      ensureFolderCoverUrl(rec, false).then((u) => {
+        if (u && currentBookPath === norm){
+          currentCoverUrl = u;
+          updatePlayerCoverUI();
+          updateMediaSession();
+        }
+      });
+    }
+
+    // Устанавливаем контекст папки для плейлиста плеера
+    currentFolder = {
+      folderUrl: ROOT_URL,
+      folderName: rec.name || folderNameFromPath(norm),
+      currentPath: norm,
+      items: rec.audios.map(a => Object.assign({}, a, { type: "file" })),
+    };
+    persistFolder();
+
+    const item = targetItem || rec.audios[0];
+    const key = folderFileKey(ROOT_URL, item.path);
+    navigateTo("player", { bookPath: norm });
+    await openTrack(key, {
+      autoplay: autoplay !== false,
+      title: item.name,
+      size: item.size,
+      mime: item.mime_type,
+      folderName: rec.name,
+      bookPath: norm,
+      coverUrl: rec.coverUrl || null,
+    });
+  }
+
+  // ---------- РОУТИНГ И ПЕРЕКЛЮЧЕНИЕ ВИДОВ ----------
+  function showView(view){
+    activeView = view;
+    catalogView.classList.toggle("hidden", view !== "catalog");
+    bookView.classList.toggle("hidden", view !== "book");
+    playerView.classList.toggle("hidden", view !== "player");
+
+    if (view === "player"){
+      playerBackToBookBtn.classList.toggle("hidden", !currentBookPath);
+      if (currentBookPath){
+        playerBackToBookBtn.textContent = "← К книге «" + folderNameFromPath(currentBookPath) + "»";
+      }
+      renderPlaylist();
+      renderHistory();
+    } else if (view === "catalog"){
+      if (catalogRootLoaded) renderCatalog();
+    }
+    updateHeaderNowPlaying();
+    updateMini();
+  }
+
+  function buildHash(view, params){
+    params = params || {};
+    if (view === "book" && params.path){
+      return "#book=" + encodeURIComponent(normalizeDiskPath(params.path));
+    }
+    if (view === "player"){
+      return "#player";
+    }
+    return "#catalog";
+  }
+
+  function navigateTo(view, params, opts){
+    opts = opts || {};
+    const targetHash = buildHash(view, params);
+    if (!opts.fromPopState && location.hash !== targetHash){
+      try{ history.pushState({ view, params }, "", targetHash); }catch(e){ location.hash = targetHash; }
+    }
+    if (view === "book" && params && params.path){
+      openBookPage(params.path);
+    } else if (view === "player"){
+      showView("player");
+    } else {
+      showView("catalog");
+    }
+    window.scrollTo({top: 0, behavior: "instant"});
+  }
+
+  function applyRouteFromHash(){
+    const h = location.hash || "";
+    if (h.startsWith("#book=")){
+      let p = "/";
+      try{ p = decodeURIComponent(h.slice(6)); }catch(e){}
+      openBookPage(p || "/");
+      return;
+    }
+    if (h === "#player"){
+      if (currentHref){
+        showView("player");
+      } else if (settings.lastUrl && isFolderFileKey(settings.lastUrl)){
+        const parsed = parseFolderFileKey(settings.lastUrl);
+        showView("player");
+        openTrack(settings.lastUrl, { autoplay: false, bookPath: parentPath(parsed.filePath) });
+      } else {
+        showView("catalog");
+      }
+      return;
+    }
+    if (h === "#history"){
+      if (currentHref || settings.lastUrl){
+        showView("player");
+        setTimeout(() => $("#historyCard").scrollIntoView({behavior:"smooth", block:"start"}), 120);
+        return;
+      }
+    }
+    showView("catalog");
+  }
+
+  window.addEventListener("popstate", () => {
+    applyRouteFromHash();
+  });
+
+  // ---------- UI: обложка плеера и шапка ----------
+  function updatePlayerCoverUI(){
+    if (currentCoverUrl){
+      playerCoverImg.src = currentCoverUrl;
+      playerCoverImg.classList.remove("hidden");
+      playerCoverEmoji.classList.add("hidden");
+      mpCoverImg.src = currentCoverUrl;
+      mpCoverImg.classList.remove("hidden");
+      mpCoverEmoji.classList.add("hidden");
+    } else {
+      playerCoverImg.classList.add("hidden");
+      playerCoverImg.removeAttribute("src");
+      playerCoverEmoji.classList.remove("hidden");
+      mpCoverImg.classList.add("hidden");
+      mpCoverImg.removeAttribute("src");
+      mpCoverEmoji.classList.remove("hidden");
+    }
+  }
+
+  function updateHeaderNowPlaying(){
+    const show = !!currentHref && activeView !== "player";
+    headerNowPlayingBtn.classList.toggle("hidden", !show);
+    if (!show) return;
+    headerNowPlayingBtn.classList.toggle("playing", !audio.paused);
+    headerNowPlayingText.textContent = (audio.paused ? "Пауза: " : "Играет: ") + (currentTitle || "Плеер");
+  }
+
+  // ---------- open track (ядро плеера) ----------
+  async function openTrack(rawUrl, opts){
+    opts = opts || {};
+    const norm = (rawUrl || "").trim();
+    if (!norm){ toast("Не указан файл для воспроизведения", true); return; }
+
+    // Быстрый путь: трек уже загружен в плеере
+    if (currentUrl === norm && currentHref && audio.src && isFinite(audio.duration) && audio.duration > 0){
+      const saved = getTrack(norm);
+      const pos = saved?.position || 0;
+      if (pos > 5 && pos < audio.duration - 15){
+        try{ audio.currentTime = pos; }catch(e){}
+        toast("Продолжаем с " + formatTime(pos));
+      }
+      if (opts.autoplay !== false){
+        audio.play().catch(() => toast("Не удалось начать воспроизведение", true));
+      }
+      return;
+    }
+
+    if (currentUrl && currentUrl !== norm){
+      savePosition();
+      if (!audio.paused){ try{ audio.pause(); }catch(e){} }
+    }
+    isLoading = true;
+    resumeTarget = null;
+    resumeApplied = false;
+    resumeToastShown = false;
+    linkRetried = false;
+    clearTimeout(loadGuardTimer);
+    loadGuardTimer = setTimeout(() => { isLoading = false; }, 30000);
+
+    setLoading("Подключаемся к файлу…");
+    resumeBanner.classList.remove("show");
+    pendingResume = null;
+
+    try{
+      if (!isFolderFileKey(norm)){
+        throw new Error("Поддерживаются файлы из привязанного каталога Яндекс Диска.");
+      }
+      const parsed = parseFolderFileKey(norm);
+      const folderUrlForTrack = parsed.folderUrl;
+      const filePathForTrack = parsed.filePath;
+      const bPath = opts.bookPath || parentPath(filePathForTrack);
+
+      setLoading("Получаем прямую ссылку для файла…");
+      const r = await resolveFolderFile(folderUrlForTrack, filePathForTrack);
+      const href = r.href;
+
+      const prevForTitle = getTrack(norm);
+      const title = opts.title || prevForTitle?.title || titleFromUrl(norm);
+      const size = (opts.size != null ? opts.size : prevForTitle?.size) || null;
+      const mime = opts.mime || prevForTitle?.mime || null;
+      const folderNameForTrack = opts.folderName || prevForTitle?.folderName || folderNameFromPath(bPath);
+
+      const prev = getTrack(norm);
+      const savedPos = prev?.position || 0;
+
+      currentUrl = norm;
+      currentHref = href;
+      currentTitle = title;
+      currentSize = size;
+      currentMime = mime;
+      currentFolderName = folderNameForTrack;
+      currentBookPath = bPath;
+      const bookRec = foldersByPath.get(bPath);
+      currentCoverUrl = opts.coverUrl || (bookRec && bookRec.coverUrl) || null;
+
+      resumeTarget = savedPos > 5 ? savedPos : null;
+      resumeApplied = false;
+
+      upsertTrack(norm, {
+        title: title,
+        size: size,
+        mime: mime,
+        duration: prev?.duration || null,
+        position: savedPos,
+        finished: prev?.finished || false,
+        folderName: folderNameForTrack,
+        folderUrl: folderUrlForTrack,
+        filePath: filePathForTrack,
+        bookPath: bPath,
+      });
+
+      settings.lastUrl = norm;
+      saveSettings(settings);
+
+      await ensureFolderContext(folderUrlForTrack, filePathForTrack, folderNameForTrack);
+
+      // Подтягиваем обложку книги в фоне, если её ещё нет
+      if (!currentCoverUrl && bookRec && bookRec.coverItem){
+        ensureFolderCoverUrl(bookRec, false).then((u) => {
+          if (u && currentBookPath === bPath){
+            currentCoverUrl = u;
+            updatePlayerCoverUI();
+            updateMediaSession();
+          }
+        });
+      } else if (!currentCoverUrl && !bookRec){
+        fetchFolderDetails(bPath, false).then(async (rec) => {
+          if (rec && rec.coverItem){
+            const u = await ensureFolderCoverUrl(rec, false);
+            if (u && currentBookPath === bPath){
+              currentCoverUrl = u;
+              updatePlayerCoverUI();
+              updateMediaSession();
+            }
+          }
+        }).catch(() => {});
+      }
+
+      playerCard.classList.remove("hidden");
+      trackTitle.textContent = title;
+      updatePlayerCoverUI();
+      updateTrackMeta();
+      if (activeView === "player"){
+        playerBackToBookBtn.classList.toggle("hidden", !currentBookPath);
+        if (currentBookPath){
+          playerBackToBookBtn.textContent = "← К книге «" + folderNameFromPath(currentBookPath) + "»";
+        }
+      }
+
+      audio.crossOrigin = "anonymous";
+      audio.src = href;
+      audio.load();
+      setStatus('<span>✓</span><span>Файл подключён. Нажмите ▶, чтобы слушать.</span>', "ok");
+      setTimeout(() => setStatus(""), 3500);
+      renderHistory();
+      renderBookmarks();
+      renderPlaylist();
+      updateMediaSession();
+      updateMediaSessionState();
+      updateHeaderNowPlaying();
+      updateMini();
+
+      if (opts.autoplay){
+        safePlay().then((ok) => {
+          if (!ok) showTapToContinue("Файл подключён — нажмите ▶, чтобы слушать");
+        });
+      }
+    }catch(err){
+      isLoading = false;
+      resumeTarget = null;
+      clearTimeout(loadGuardTimer);
+      const msg = yandexErrorText(err);
+      setStatus('<span>⚠</span><span>' + escapeHtml(msg) + '</span>', "error");
+      toast(msg, true);
+    }
+  }
+
+  function updateTrackMeta(){
+    const parts = [];
+    if (currentFolderName) parts.push("📖 " + currentFolderName);
+    if (currentSize) parts.push(formatSize(currentSize));
+    if (isFinite(audio.duration) && audio.duration > 0) parts.push("длительность " + formatTime(audio.duration));
+    const prev = currentUrl ? getTrack(currentUrl) : null;
+    if (prev && prev.position > 5) parts.push("остановка на " + formatTime(prev.position));
+    trackMeta.textContent = parts.join(" · ") || "";
+  }
+
+  // ---------- плейлист текущей книги ----------
+  function folderAudioItems(){
+    if (!currentFolder || !Array.isArray(currentFolder.items)) return [];
+    return currentFolder.items.filter(isAudioFileItem).slice().sort(naturalSort);
+  }
+  function persistFolder(){
+    if (currentFolder && currentFolder.folderUrl){
+      saveFolderState({
+        folderUrl: currentFolder.folderUrl,
+        folderName: currentFolder.folderName,
+        currentPath: currentFolder.currentPath || "/",
+        items: currentFolder.items || [],
+      });
+    } else {
+      saveFolderState(null);
+    }
+  }
+  async function ensureFolderContext(folderUrl, filePath, folderName){
+    const clean = cleanYandexUrl(folderUrl);
+    const bPath = parentPath(filePath || "/");
+    if (currentFolder && currentFolder.folderUrl === clean && currentFolder.currentPath === bPath && currentFolder.items.length){
+      renderPlaylist();
+      return;
+    }
+    const cachedBook = foldersByPath.get(bPath);
+    if (cachedBook && cachedBook.loaded && cachedBook.audios.length){
+      currentFolder = {
+        folderUrl: clean,
+        folderName: cachedBook.name || folderName || folderNameFromPath(bPath),
+        currentPath: bPath,
+        items: cachedBook.audios.map(a => Object.assign({}, a, { type: "file" })),
+      };
+      persistFolder();
+      renderPlaylist();
+      return;
+    }
+    const saved = loadFolderState();
+    if (saved && saved.folderUrl === clean && saved.currentPath === bPath && Array.isArray(saved.items) && saved.items.length){
+      currentFolder = {
+        folderUrl: saved.folderUrl,
+        folderName: saved.folderName || folderName || "Книга",
+        currentPath: saved.currentPath,
+        items: saved.items,
+      };
+      renderPlaylist();
+      return;
+    }
+    currentFolder = {
+      folderUrl: clean,
+      folderName: folderName || folderNameFromPath(bPath),
+      currentPath: bPath,
+      items: [],
+    };
+    renderPlaylist();
+    setStatusBox(folderStatus, '<span class="spinner" aria-hidden="true"></span><span>Загружаем главы книги…</span>');
+    try{
+      const rec = await fetchFolderDetails(bPath, false);
+      if (!currentFolder || currentFolder.currentPath !== bPath) return;
+      currentFolder.folderName = rec.name || currentFolder.folderName;
+      currentFolder.items = rec.audios.map(a => Object.assign({}, a, { type: "file" }));
+      persistFolder();
+      setStatusBox(folderStatus, "");
+      renderPlaylist();
+    }catch(e){
+      setStatusBox(folderStatus, '<span>⚠</span><span>Не удалось загрузить список файлов: ' + escapeHtml(yandexErrorText(e)) + '</span>', "error");
+    }
+  }
+
+  function renderPlaylist(){
+    updatePrevNextButtons();
+    if (!currentFolder){
+      folderCard.classList.add("hidden");
+      playlistList.innerHTML = "";
+      return;
+    }
+    const audios = folderAudioItems();
+    if (!audios.length && !currentFolder.items.length){
+      folderCard.classList.add("hidden");
+      return;
+    }
+    folderCard.classList.remove("hidden");
+    folderTitle.textContent = "📖 " + (currentFolder.folderName || "Главы");
+    folderCount.textContent = audios.length ? (audios.length + " " + plural(audios.length, "файл", "файла", "файлов")) : "";
+    const cp = currentFolder.currentPath || "/";
+    folderPath.textContent = cp !== "/" ? ("Папка: " + cp) : "Корень каталога";
+    playlistList.innerHTML = "";
+
+    if (!audios.length){
+      playlistList.innerHTML = '<p class="empty">В этой папке нет аудиофайлов.</p>';
+      return;
+    }
+    audios.forEach((item, idx) => {
+      const key = folderFileKey(currentFolder.folderUrl, item.path || (cp + "/" + item.name));
+      const savedTrack = getTrack(key);
+      const el = document.createElement("div");
+      el.className = "playlist-item" + (key === currentUrl ? " current" : "");
+      el.setAttribute("role", "button");
+      const metaParts = [];
+      if (item.size) metaParts.push(formatSize(item.size));
+      if (savedTrack && savedTrack.duration) metaParts.push(formatTime(savedTrack.duration));
+      if (savedTrack && savedTrack.position > 5 && savedTrack.duration) metaParts.push("остановка " + formatTime(savedTrack.position));
+      if (savedTrack && savedTrack.finished) metaParts.push("прослушан ✓");
+      el.innerHTML = '<div class="num">' + (idx + 1) + '</div>' +
+        '<div class="info"><div class="title"></div><div class="meta"></div><div class="mini-progress"><div></div></div></div>' +
+        '<div class="actions"><button class="icon-btn" type="button" title="Слушать"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div>';
+      el.querySelector(".title").textContent = item.name || ("Файл " + (idx + 1));
+      el.querySelector(".meta").textContent = metaParts.join(" · ") || "Аудиофайл";
+      const pct = (savedTrack && savedTrack.duration && savedTrack.position)
+        ? Math.min(100, (savedTrack.position / savedTrack.duration) * 100)
+        : (savedTrack && savedTrack.finished ? 100 : 0);
+      el.querySelector(".mini-progress > div").style.width = pct + "%";
+      el.addEventListener("click", () => openPlaylistItem(item));
+      playlistList.appendChild(el);
+    });
+    updatePrevNextButtons();
+  }
+
+  function openPlaylistItem(item){
+    if (!currentFolder || !item) return;
+    const key = folderFileKey(currentFolder.folderUrl, item.path || ((currentFolder.currentPath === "/" ? "" : currentFolder.currentPath) + "/" + item.name));
+    openTrack(key, {
+      autoplay: true,
+      title: item.name,
+      size: item.size,
+      mime: item.mime_type,
+      folderName: currentFolder.folderName,
+      bookPath: currentFolder.currentPath,
+      coverUrl: currentCoverUrl,
+    });
+  }
+  function currentPlaylistIndex(){
+    if (!currentFolder || !currentUrl) return -1;
+    const audios = folderAudioItems();
+    return audios.findIndex(it => folderFileKey(currentFolder.folderUrl, it.path || ((currentFolder.currentPath === "/" ? "" : currentFolder.currentPath) + "/" + it.name)) === currentUrl);
+  }
+  function hasPrevTrack(){ return currentPlaylistIndex() > 0; }
+  function hasNextTrack(){
+    const idx = currentPlaylistIndex();
+    return idx >= 0 && idx < folderAudioItems().length - 1;
+  }
+  function updatePrevNextButtons(){
+    if (!prevBtn || !nextBtn) return;
+    const idx = currentPlaylistIndex();
+    const audios = folderAudioItems();
+    prevBtn.disabled = !(idx > 0);
+    nextBtn.disabled = !(idx >= 0 && idx < audios.length - 1);
+    if (mpPrev) mpPrev.disabled = prevBtn.disabled;
+    if (mpNext) mpNext.disabled = nextBtn.disabled;
+    prevBtn.title = idx > 0 ? ("Предыдущий: " + (audios[idx - 1].name || "")) : "Предыдущий файл";
+    nextBtn.title = (idx >= 0 && idx < audios.length - 1) ? ("Следующий: " + (audios[idx + 1].name || "")) : "Следующий файл";
+  }
+  function goPrevTrack(){
+    const idx = currentPlaylistIndex();
+    if (idx <= 0) return;
+    advanceCooldownUntil = 0; advancing = false;
+    openPlaylistItem(folderAudioItems()[idx - 1]);
+  }
+  function goNextTrack(){
+    const idx = currentPlaylistIndex();
+    const audios = folderAudioItems();
+    if (idx < 0 || idx >= audios.length - 1) return;
+    advanceCooldownUntil = 0; advancing = false;
+    openPlaylistItem(audios[idx + 1]);
+  }
+
+  // ---------- resume ----------
+  function applyResume(){
+    if (!isLoading || resumeApplied) return;
+    if (resumeTarget == null){
+      resumeApplied = true;
+      isLoading = false;
+      clearTimeout(loadGuardTimer);
+      pendingResume = null;
+      resumeBanner.classList.remove("show");
+      return;
+    }
+    const dur = audio.duration;
+    if (!isFinite(dur) || dur <= 0) return;
+    if (resumeTarget >= dur - 15){
+      resumeApplied = true;
+      isLoading = false;
+      clearTimeout(loadGuardTimer);
+      pendingResume = null;
+      resumeBanner.classList.remove("show");
+      return;
+    }
+    pendingResume = {position: resumeTarget, duration: dur};
+    resumeText.textContent = "Продолжить с " + formatTime(resumeTarget) + " (из " + formatTime(dur) + ")?";
+    if (settings.autoResume !== false){
+      if (Math.abs((audio.currentTime || 0) - resumeTarget) < 2){
+        resumeApplied = true;
+        isLoading = false;
+        clearTimeout(loadGuardTimer);
+        resumeBanner.classList.remove("show");
+        return;
+      }
+      try{ audio.currentTime = resumeTarget; }catch(e){}
+      if (!resumeToastShown){
+        resumeToastShown = true;
+        toast("Продолжаем с " + formatTime(resumeTarget));
+      }
+      resumeBanner.classList.remove("show");
+    } else {
+      resumeBanner.classList.add("show");
+      resumeApplied = true;
+      isLoading = false;
+      clearTimeout(loadGuardTimer);
+    }
+    updateTimeUI();
+  }
+
+  // ---------- audio events ----------
+  audio.addEventListener("loadedmetadata", () => {
+    updateTrackMeta();
+    updateTimeUI();
+    applyResume();
+    renderHistory();
+    updateMediaSession();
+    updateMediaSessionState();
+    updateMini();
+  });
+  audio.addEventListener("loadeddata", () => { applyResume(); });
+  audio.addEventListener("canplay", () => { applyResume(); });
+  audio.addEventListener("durationchange", () => { updateTrackMeta(); updateTimeUI(); applyResume(); });
+  audio.addEventListener("timeupdate", () => {
+    if (!isSeeking) updateTimeUI();
+    const now = Date.now();
+    if (now - lastSaveAt > 3000){ lastSaveAt = now; savePosition(); }
+    if (isFinite(audio.duration) && audio.duration > 0 && (audio.duration - audio.currentTime) < 90){
+      prefetchNextHref();
+    }
+    if (miniVisible) scheduleMini();
+    if (now - (audio._lastMsUpdate || 0) > 2000){ audio._lastMsUpdate = now; updateMediaSessionState(); }
+  });
+  audio.addEventListener("progress", updateBuffered);
+  audio.addEventListener("play", () => {
+    playIcon.classList.add("hidden"); pauseIcon.classList.remove("hidden");
+    document.title = "▶ " + currentTitle;
+    if (isLoading && resumeTarget != null) applyResume();
+    updateMediaSessionState();
+    requestWakeLock();
+    updateHeaderNowPlaying();
+    updateMini();
+    linkRetried = false;
+    advancing = false;
+    statusPinnedUntil = 0;
+    if (tapToContinueHandler){
+      setStatus("");
+      document.removeEventListener("pointerdown", tapToContinueHandler, true);
+      document.removeEventListener("keydown", tapToContinueHandler, true);
+      tapToContinueHandler = null;
+    }
+    if ((Number(settings.preamp) || 1) > 1.001) applyPreamp(settings.preamp, {silent: true});
+  });
+  audio.addEventListener("pause", () => {
+    playIcon.classList.remove("hidden"); pauseIcon.classList.add("hidden");
+    document.title = (CATALOG_CONFIG.title || "Аудиотека") + " — каталог аудиокниг";
+    savePosition();
+    updateMediaSessionState();
+    releaseWakeLock();
+    updateHeaderNowPlaying();
+    updateMini();
+    if (audio.paused) maybeAdvanceFromTail("pause-tail");
+  });
+  ["stalled", "suspend", "abort"].forEach((ev) => {
+    audio.addEventListener(ev, () => { setTimeout(() => maybeAdvanceFromTail(ev + "-tail"), 1500); });
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible"){
+      const d = audio.duration;
+      if (isFinite(d) && d > 0 && (d - (audio.currentTime || 0)) < TAIL_SEC) maybeAdvanceFromTail("visible-tail");
+      if (!audio.paused) requestWakeLock();
+      updateMini();
+      updateMediaSessionState();
+    } else if (document.visibilityState === "hidden"){
+      savePosition();
+    }
+  });
+  audio.addEventListener("ended", () => {
+    if (currentUrl){
+      upsertTrack(currentUrl, {position: 0, finished: true});
+      renderHistory();
+      renderPlaylist();
+    }
+    if (scheduleAdvance("ended")) return;
+    toast("Прослушивание завершено");
+  });
+
+  // ---------- надёжный автопереход ----------
+  let advancing = false;
+  let lastAdvanceAt = 0;
+  let advanceTarget = null;
+  let advanceAttempts = 0;
+  let advanceStartedAt = 0;
+  let advanceCooldownUntil = 0;
+
+  function folderForAdvance(){
+    if (currentFolder) return currentFolder;
+    try{
+      const saved = loadFolderState();
+      if (saved && saved.folderUrl && Array.isArray(saved.items) && saved.items.length){
+        currentFolder = {
+          folderUrl: saved.folderUrl,
+          folderName: saved.folderName || "Книга",
+          currentPath: saved.currentPath || "/",
+          items: saved.items,
+        };
+        renderPlaylist();
+      }
+    }catch(e){}
+    return currentFolder;
+  }
+  function canAutoAdvance(){
+    if (settings.autoNext === false) return false;
+    if (!currentUrl) return false;
+    folderForAdvance();
+    return hasNextTrack();
+  }
+  function openAdvanceTarget(autoplay){
+    if (!advanceTarget) return;
+    const it = advanceTarget.item;
+    openTrack(advanceTarget.key, {
+      autoplay: autoplay !== false,
+      title: it.name,
+      size: it.size,
+      mime: it.mime_type,
+      folderName: currentFolder ? currentFolder.folderName : null,
+      bookPath: currentFolder ? currentFolder.currentPath : currentBookPath,
+      coverUrl: currentCoverUrl,
+    });
+  }
+  function retryAdvanceLoad(){
+    advanceAttempts++;
+    if (advanceAttempts > 3){
+      advancing = false;
+      advanceCooldownUntil = Date.now() + 60000;
+      statusPinnedUntil = Date.now() + 120000;
+      setStatus('<span>⚠</span><span>Не удалось включить следующий файл. Нажмите ⏭, чтобы повторить.</span>', "error");
+      return;
+    }
+    try{ hrefCache.clear(); }catch(e){}
+    if (!advanceTarget) return;
+    openAdvanceTarget(true);
+    setTimeout(checkAdvanceResult, 6000);
+  }
+  function checkAdvanceResult(){
+    if (!advancing) return;
+    if (!audio.paused && audio.currentTime > 0){ advancing = false; advanceAttempts = 0; return; }
+    safePlay().then((ok) => {
+      if (ok){ advancing = false; advanceAttempts = 0; return; }
+      if (audio.error || !audio.src) retryAdvanceLoad();
+      else retryAdvancePlayback();
+      advancing = false;
+    });
+  }
+  function scheduleAdvance(reason){
+    if (!canAutoAdvance()) return false;
+    const now = Date.now();
+    if (reason !== "manual" && now < advanceCooldownUntil) return false;
+    if (advancing && now - advanceStartedAt < 60000) return true;
+    if (advancing) advancing = false;
+    if (now - lastAdvanceAt < 1200) return true;
+
+    const idx = currentPlaylistIndex();
+    const audios = folderAudioItems();
+    if (idx < 0 || idx >= audios.length - 1) return false;
+    const item = audios[idx + 1];
+
+    advancing = true;
+    advanceAttempts = 0;
+    advanceStartedAt = now;
+    lastAdvanceAt = now;
+    advanceTarget = {
+      key: folderFileKey(currentFolder.folderUrl, item.path || ((currentFolder.currentPath === "/" ? "" : currentFolder.currentPath) + "/" + item.name)),
+      item: item,
+    };
+
+    toast("Дальше: " + (item.name || "следующий файл"));
+    try{ openAdvanceTarget(true); }catch(e){ advancing = false; return false; }
+    setTimeout(checkAdvanceResult, 6000);
+    return true;
+  }
+
+  const TAIL_SEC = 2.5;
+  function maybeAdvanceFromTail(reason){
+    if (advancing) return false;
+    const d = audio.duration;
+    const ct = audio.currentTime || 0;
+    if (!isFinite(d) || d <= 0) return false;
+    if (d - ct > TAIL_SEC) return false;
+    if (!canAutoAdvance()) return false;
+    if (currentUrl){
+      upsertTrack(currentUrl, {position: 0, finished: true});
+      renderHistory();
+      renderPlaylist();
+    }
+    lastAdvanceAt = 0;
+    return scheduleAdvance(reason);
+  }
+
+  let lastTickCt = -1, lastTickAt = 0, pausedAtEndSince = 0;
+  setInterval(() => {
+    if (!isFinite(audio.duration) || audio.duration <= 0){ pausedAtEndSince = 0; return; }
+    const ct = audio.currentTime;
+    const atEnd = audio.duration - ct < TAIL_SEC;
+    if (audio.paused){
+      if (!atEnd){ pausedAtEndSince = 0; return; }
+      if (!pausedAtEndSince) pausedAtEndSince = Date.now();
+      if (Date.now() - pausedAtEndSince > 3000) maybeAdvanceFromTail("watchdog-paused");
+      return;
+    }
+    pausedAtEndSince = 0;
+    if (ct !== lastTickCt){ lastTickCt = ct; lastTickAt = Date.now(); return; }
+    if (atEnd && Date.now() - lastTickAt > 2500) maybeAdvanceFromTail("watchdog-stalled");
+  }, 1000);
+
+  let prefetchedKey = null;
+  function prefetchNextHref(){
+    if (settings.autoNext === false) return;
+    if (!currentFolder || !currentUrl) return;
+    const idx = currentPlaylistIndex();
+    const audios = folderAudioItems();
+    if (idx < 0 || idx >= audios.length - 1) return;
+    const nxt = audios[idx + 1];
+    const path = nxt.path || ((currentFolder.currentPath === "/" ? "" : currentFolder.currentPath) + "/" + nxt.name);
+    const key = folderFileKey(currentFolder.folderUrl, path);
+    if (getCachedHref(key) || prefetchedKey === key) return;
+    prefetchedKey = key;
+    resolveFolderFile(currentFolder.folderUrl, path).catch(() => {});
+  }
+
+  function retryAdvancePlayback(){
+    safePlay().then((ok) => {
+      if (ok) return;
+      showTapToContinue("Следующий файл готов — нажмите ▶, чтобы продолжить");
+    });
+  }
+  function safePlay(){
+    let p;
+    try{ p = audio.play(); }catch(e){ return Promise.resolve(false); }
+    if (!p || !p.then) return Promise.resolve(true);
+    return p.then(() => true).catch((err) => {
+      const name = (err && err.name) || "";
+      if (name === "NotAllowedError" || name === "AbortError") return false;
+      toast("Не удалось начать воспроизведение", true);
+      return false;
+    });
+  }
+  let tapToContinueHandler = null;
+  function showTapToContinue(text){
+    statusPinnedUntil = Date.now() + 120000;
+    setStatus('<span>▶</span><span>' + escapeHtml(text) + '</span>');
+    resumeBanner.classList.remove("show");
+    if (tapToContinueHandler) return;
+    tapToContinueHandler = () => {
+      safePlay().then((ok) => {
+        if (!ok) return;
+        setStatus("");
+        document.removeEventListener("pointerdown", tapToContinueHandler, true);
+        document.removeEventListener("keydown", tapToContinueHandler, true);
+        tapToContinueHandler = null;
+      });
+    };
+    setTimeout(() => {
+      if (!tapToContinueHandler) return;
+      document.addEventListener("pointerdown", tapToContinueHandler, true);
+      document.addEventListener("keydown", tapToContinueHandler, true);
+    }, 50);
+  }
+
+  async function refreshDirectLinkAndRetry(){
+    if (linkRetried || !currentUrl) return false;
+    linkRetried = true;
+    const pos = audio.currentTime || 0;
+    try{
+      const p = parseFolderFileKey(currentUrl);
+      if (!p) return false;
+      hrefCache.delete(currentUrl);
+      const r = await resolveFolderFile(p.folderUrl, p.filePath);
+      if (!r || !r.href) return false;
+      currentHref = r.href;
+      resumeTarget = pos > 5 ? pos : null;
+      resumeApplied = false;
+      resumeToastShown = false;
+      isLoading = true;
+      clearTimeout(loadGuardTimer);
+      loadGuardTimer = setTimeout(() => { isLoading = false; }, 30000);
+      audio.src = r.href;
+      audio.load();
+      if (!audio.paused) audio.play().catch(() => {});
+      toast("Обновили ссылку на файл, продолжаем");
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  audio.addEventListener("error", async () => {
+    isLoading = false;
+    resumeTarget = null;
+    clearTimeout(loadGuardTimer);
+    if (!currentHref || !audio.src) return;
+    const dur = audio.duration;
+    const ct = audio.currentTime || 0;
+    if (isFinite(dur) && dur > 0 && (dur - ct) < 20){
+      if (currentUrl){
+        upsertTrack(currentUrl, {position: 0, finished: true});
+        renderHistory(); renderPlaylist();
+      }
+      lastAdvanceAt = 0;
+      if (scheduleAdvance("error-tail")) return;
+    }
+    setStatus('<span>⚠</span><span>Ссылка не открылась. Пробуем получить новую…</span>');
+    const ok = await refreshDirectLinkAndRetry();
+    if (ok) return;
+    setStatus('<span>⚠</span><span>Не удалось воспроизвести файл: проверьте интернет-соединение и попробуйте снова.</span>', "error");
+  });
+  audio.addEventListener("seeked", () => {
+    updateTimeUI();
+    if (isLoading && resumeTarget != null && Math.abs((audio.currentTime || 0) - resumeTarget) < 3){
+      resumeApplied = true;
+      isLoading = false;
+      clearTimeout(loadGuardTimer);
+    }
+    savePosition();
+  });
+
+  function updateBuffered(){
+    try{
+      if (!audio.buffered || audio.buffered.length === 0 || !isFinite(audio.duration) || audio.duration <= 0) return;
+      const end = audio.buffered.end(audio.buffered.length - 1);
+      bufferedBar.style.width = Math.min(100, (end / audio.duration) * 100) + "%";
+    }catch(e){}
+  }
+  function updateTimeUI(){
+    const t = audio.currentTime || 0;
+    const d = audio.duration;
+    curTimeEl.textContent = formatTime(t);
+    if (isFinite(d) && d > 0){
+      timeToggleBtn.textContent = showRemaining ? ("−" + formatTime(d - t)) : formatTime(d);
+      const pct = Math.min(100, Math.max(0, (t / d) * 100));
+      playedBar.style.width = pct + "%";
+      seekHandle.style.left = pct + "%";
+      seekBar.setAttribute("aria-valuenow", String(Math.round(pct)));
+      seekBar.setAttribute("aria-valuetext", formatTime(t) + " из " + formatTime(d));
+    } else {
+      timeToggleBtn.textContent = "…";
+    }
+  }
+
+  // ---------- controls ----------
+  function cancelResume(){
+    resumeTarget = null;
+    resumeApplied = true;
+    isLoading = false;
+    clearTimeout(loadGuardTimer);
+    pendingResume = null;
+    resumeBanner.classList.remove("show");
+  }
+  function togglePlay(){
+    if (!currentHref){ toast("Сначала выберите аудиокнигу", true); return; }
+    if (audio.paused){
+      if (isLoading && resumeTarget != null) applyResume();
+      safePlay().then((ok) => { if (!ok) showTapToContinue("Нажмите ▶, чтобы начать воспроизведение"); });
+    } else {
+      audio.pause();
+    }
+  }
+  playBtn.addEventListener("click", togglePlay);
+  prevBtn.addEventListener("click", () => { if (hasPrevTrack()) goPrevTrack(); });
+  nextBtn.addEventListener("click", () => { if (hasNextTrack()) goNextTrack(); });
+
+  $$("[data-seek]").forEach(btn => {
+    btn.addEventListener("click", () => seekBy(parseFloat(btn.getAttribute("data-seek"))));
+  });
+  function seekBy(delta){
+    if (!isFinite(audio.duration) && !audio.currentTime) return;
+    let base = audio.currentTime || 0;
+    if (isLoading && resumeTarget != null && base < 5) base = resumeTarget;
+    cancelResume();
+    const target = base + delta;
+    const max = isFinite(audio.duration) ? audio.duration : Infinity;
+    try{ audio.currentTime = Math.min(Math.max(0, target), max); }catch(e){}
+    updateTimeUI();
+  }
+
+  function seekFromEvent(e){
+    const rect = seekBar.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    cancelResume();
+    if (isFinite(audio.duration) && audio.duration > 0){
+      try{ audio.currentTime = ratio * audio.duration; }catch(err){}
+    }
+    const pct = ratio * 100;
+    playedBar.style.width = pct + "%";
+    seekHandle.style.left = pct + "%";
+  }
+  seekBar.addEventListener("pointerdown", (e) => {
+    isSeeking = true;
+    seekBar.setPointerCapture(e.pointerId);
+    seekFromEvent(e);
+  });
+  seekBar.addEventListener("pointermove", (e) => { if (isSeeking) seekFromEvent(e); });
+  seekBar.addEventListener("pointerup", () => { isSeeking = false; savePosition(); });
+  seekBar.addEventListener("pointercancel", () => { isSeeking = false; });
+  seekBar.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft"){ e.preventDefault(); seekBy(-10); }
+    if (e.key === "ArrowRight"){ e.preventDefault(); seekBy(10); }
+    if (e.key === "Home"){ e.preventDefault(); cancelResume(); try{ audio.currentTime = 0; }catch(err){} }
+    if (e.key === "End" && isFinite(audio.duration)){ e.preventDefault(); cancelResume(); try{ audio.currentTime = audio.duration; }catch(err){} }
+  });
+
+  timeToggleBtn.addEventListener("click", () => {
+    showRemaining = !showRemaining;
+    updateTimeUI();
+  });
+
+  speedSelect.addEventListener("change", () => {
+    const r = parseFloat(speedSelect.value);
+    audio.playbackRate = r;
+    settings.rate = r; saveSettings(settings);
+    if (currentUrl) upsertTrack(currentUrl, {rate: r});
+    toast("Скорость: " + r + "×");
+  });
+
+  // ---------- предусилитель ----------
+  function ensureAudioGraph(){
+    if (audioCtx) return true;
+    if (boostUnsupported) return false;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC){ boostUnsupported = true; return false; }
+    try{
+      audioCtx = new AC();
+      mediaSourceNode = audioCtx.createMediaElementSource(audio);
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = Math.max(1, Number(settings.preamp) || 1);
+      limiterNode = audioCtx.createDynamicsCompressor();
+      limiterNode.threshold.value = -1.5;
+      limiterNode.knee.value = 0;
+      limiterNode.ratio.value = 20;
+      limiterNode.attack.value = 0.003;
+      limiterNode.release.value = 0.25;
+      mediaSourceNode.connect(gainNode);
+      gainNode.connect(limiterNode);
+      limiterNode.connect(audioCtx.destination);
+      return true;
+    }catch(e){
+      audioCtx = null; gainNode = null; limiterNode = null; mediaSourceNode = null;
+      boostUnsupported = true;
+      return false;
+    }
+  }
+  function resumeAudioCtx(){
+    if (audioCtx && audioCtx.state === "suspended"){ audioCtx.resume().catch(() => {}); }
+  }
+  function updatePreampUI(){
+    const v = Math.max(1, Number(settings.preamp) || 1);
+    const pct = Math.round(v * 100);
+    preampLabel.textContent = pct + "%";
+    preampRange.value = String(v);
+    const boosted = v > 1.001;
+    preampPill.classList.toggle("boosted", boosted);
+    preampResetBtn.classList.toggle("hidden", !boosted);
+    preampPill.title = boosted
+      ? ("Усиление " + pct + "% — громче обычного максимума.")
+      : "Предусилитель: усиливает тихие записи выше обычного максимума";
+  }
+  function applyPreamp(value, opts){
+    opts = opts || {};
+    const v = Math.min(3, Math.max(1, Number(value) || 1));
+    settings.preamp = v;
+    saveSettings(settings);
+    updatePreampUI();
+    if (v <= 1.001){
+      if (gainNode) gainNode.gain.value = 1;
+      return;
+    }
+    if (!ensureAudioGraph()){
+      updatePreampUI();
+      if (!opts.silent) toast("Усиление недоступно в этом браузере", true);
+      return;
+    }
+    resumeAudioCtx();
+    gainNode.gain.value = v;
+  }
+  preampRange.addEventListener("input", () => applyPreamp(parseFloat(preampRange.value)));
+  preampRange.addEventListener("change", () => {
+    const v = Math.round((Number(settings.preamp) || 1) * 100);
+    if (v > 100) toast("Усиление " + v + "%");
+  });
+  preampResetBtn.addEventListener("click", () => {
+    applyPreamp(1);
+    toast("Усиление сброшено к 100%");
+  });
+  updatePreampUI();
+
+  volumeRange.addEventListener("input", () => {
+    audio.volume = parseFloat(volumeRange.value);
+    audio.muted = audio.volume === 0;
+    settings.volume = audio.volume; saveSettings(settings);
+  });
+  muteBtn.addEventListener("click", () => {
+    audio.muted = !audio.muted;
+    if (!audio.muted && audio.volume === 0){ audio.volume = 0.5; volumeRange.value = "0.5"; }
+    toast(audio.muted ? "Без звука" : "Звук включён");
+  });
+
+  $("#restartBtn").addEventListener("click", () => {
+    cancelResume();
+    try{ audio.currentTime = 0; }catch(e){}
+    if (currentUrl) upsertTrack(currentUrl, {position: 0, finished: false});
+    renderHistory();
+  });
+  $("#resumeYesBtn").addEventListener("click", () => {
+    if (pendingResume){
+      try{ audio.currentTime = pendingResume.position; }catch(e){}
+      audio.play().catch(() => {});
+    }
+    resumeBanner.classList.remove("show");
+  });
+  $("#resumeNoBtn").addEventListener("click", () => {
+    cancelResume();
+    try{ audio.currentTime = 0; }catch(e){}
+    if (currentUrl) upsertTrack(currentUrl, {position: 0, finished: false});
+    resumeBanner.classList.remove("show");
+    renderHistory();
+  });
+  $("#downloadBtn").addEventListener("click", () => {
+    if (!currentHref){ toast("Файл не загружен", true); return; }
+    const a = document.createElement("a");
+    a.href = currentHref;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.referrerPolicy = "no-referrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+  $("#copyDirectBtn").addEventListener("click", async () => {
+    if (!currentHref){ toast("Файл не загружен", true); return; }
+    const ok = await copyTextToClipboard(currentHref);
+    if (ok) toast("Прямая ссылка на файл скопирована");
+    else window.prompt("Скопируйте ссылку:", currentHref);
+  });
+  $("#sharePlayerBtn").addEventListener("click", () => shareBook(currentBookPath || "/"));
+
+  function doJump(){
+    const v = parseTimeInput($("#jumpInput").value);
+    if (v == null){ toast("Введите время, например 12:30", true); return; }
+    cancelResume();
+    const max = isFinite(audio.duration) ? audio.duration : Infinity;
+    try{ audio.currentTime = Math.min(Math.max(0, v), max); }catch(e){}
+    updateTimeUI();
+  }
+  $("#jumpBtn").addEventListener("click", doJump);
+  $("#jumpInput").addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); doJump(); } });
+
+  // Sleep timer
+  const sleepSelect = $("#sleepSelect");
+  const sleepLabel = $("#sleepLabel");
+  const sleepPill = $("#sleepPill");
+  sleepSelect.addEventListener("change", () => {
+    const mins = parseInt(sleepSelect.value, 10);
+    clearInterval(sleepTimerId); sleepTimerId = null; sleepEndAt = null;
+    sleepLabel.classList.add("hidden"); sleepPill.classList.remove("sleep-active");
+    if (!mins){ toast("Таймер сна выключен"); return; }
+    sleepEndAt = Date.now() + mins * 60 * 1000;
+    sleepPill.classList.add("sleep-active");
+    sleepLabel.classList.remove("hidden");
+    toast("Таймер сна: " + mins + " мин");
+    sleepTimerId = setInterval(() => {
+      const left = sleepEndAt - Date.now();
+      if (left <= 0){
+        clearInterval(sleepTimerId); sleepTimerId = null;
+        audio.pause();
+        sleepLabel.classList.add("hidden"); sleepPill.classList.remove("sleep-active");
+        sleepSelect.value = "0";
+        toast("Таймер сна: пауза");
+        return;
+      }
+      const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+      sleepLabel.textContent = m + ":" + String(s).padStart(2,"0");
+    }, 1000);
+  });
+
+  // Bookmarks
+  function getBookmarks(url){
+    const all = loadBookmarks();
+    return all[url] || [];
+  }
+  function setBookmarks(url, list){
+    const all = loadBookmarks();
+    all[url] = list;
+    saveBookmarks(all);
+  }
+  $("#bookmarkBtn").addEventListener("click", () => {
+    if (!currentUrl){ toast("Сначала выберите аудиофайл", true); return; }
+    const t = Math.floor(audio.currentTime || 0);
+    const list = getBookmarks(currentUrl);
+    if (list.some(b => Math.abs(b.t - t) < 3)){ toast("Метка на этом месте уже есть"); return; }
+    list.push({t: t, label: formatTime(t), createdAt: Date.now()});
+    list.sort((a,b) => a.t - b.t);
+    setBookmarks(currentUrl, list);
+    renderBookmarks();
+    toast("Метка: " + formatTime(t));
+  });
+  function renderBookmarks(){
+    if (!currentUrl){ bmList.innerHTML = '<span class="empty">Меток пока нет.</span>'; return; }
+    const list = getBookmarks(currentUrl);
+    if (!list.length){ bmList.innerHTML = '<span class="empty">Меток пока нет. Нажмите «Метка», чтобы сохранить момент.</span>'; return; }
+    bmList.innerHTML = "";
+    list.forEach((b, idx) => {
+      const el = document.createElement("span");
+      el.className = "bm";
+      const go = document.createElement("button");
+      go.type = "button"; go.textContent = b.label || formatTime(b.t);
+      go.title = "Перейти к " + formatTime(b.t);
+      go.addEventListener("click", () => { try{ audio.currentTime = b.t; }catch(e){} });
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "del"; del.textContent = "✕"; del.title = "Удалить метку";
+      del.addEventListener("click", () => {
+        const cur = getBookmarks(currentUrl).filter((_, i) => i !== idx);
+        setBookmarks(currentUrl, cur);
+        renderBookmarks();
+      });
+      el.appendChild(go); el.appendChild(del);
+      bmList.appendChild(el);
+    });
+  }
+
+  // ---------- история ----------
+  function renderHistory(){
+    const all = loadTracks();
+    const items = Object.values(all)
+      .filter(it => it && it.url && !it.url.startsWith("blob:"))
+      .sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+    if (!items.length){
+      historyList.innerHTML = '<p class="empty">История прослушивания пуста.</p>';
+      return;
+    }
+    historyList.innerHTML = "";
+    items.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "history-item" + (item.url === currentUrl ? " current" : "");
+      const pct = (item.duration && item.position)
+        ? Math.min(100, (item.position / item.duration) * 100)
+        : (item.finished ? 100 : 0);
+      const metaParts = [];
+      if (item.folderName) metaParts.push("📖 " + item.folderName);
+      if (item.size) metaParts.push(formatSize(item.size));
+      if (item.duration) metaParts.push(formatTime(item.duration));
+      if (item.position > 5 && item.duration) metaParts.push("остановка " + formatTime(item.position));
+      if (item.finished) metaParts.push("прослушан ✓");
+      if (item.updatedAt) metaParts.push(formatDate(item.updatedAt));
+
+      const info = document.createElement("div");
+      info.className = "info";
+      const title = document.createElement("div");
+      title.className = "title"; title.textContent = item.title || "Аудиофайл"; title.title = item.title || "";
+      const meta = document.createElement("div");
+      meta.className = "meta"; meta.textContent = metaParts.join(" · ");
+      const bar = document.createElement("div");
+      bar.className = "mini-progress";
+      const fill = document.createElement("div");
+      fill.style.width = pct + "%";
+      bar.appendChild(fill);
+      info.appendChild(title); info.appendChild(meta); info.appendChild(bar);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const play = document.createElement("button");
+      play.className = "icon-btn"; play.type = "button";
+      play.title = item.position > 5 ? "Продолжить с " + formatTime(item.position) : "Слушать";
+      play.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+      play.addEventListener("click", () => {
+        const parsed = parseFolderFileKey(item.url);
+        const bp = item.bookPath || (parsed ? parentPath(parsed.filePath) : "/");
+        openTrack(item.url, {
+          autoplay: true,
+          title: item.title,
+          size: item.size,
+          mime: item.mime,
+          folderName: item.folderName,
+          bookPath: bp,
+        });
+      });
+
+      const restart = document.createElement("button");
+      restart.className = "icon-btn"; restart.type = "button"; restart.title = "Сбросить позицию";
+      restart.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>';
+      restart.addEventListener("click", () => {
+        upsertTrack(item.url, {position: 0, finished: false});
+        if (item.url === currentUrl){ try{ audio.currentTime = 0; }catch(e){} }
+        renderHistory();
+        toast("Позиция сброшена");
+      });
+
+      const del = document.createElement("button");
+      del.className = "icon-btn danger"; del.type = "button"; del.title = "Удалить из истории";
+      del.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-1V2h-4v2H10V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/></svg>';
+      del.addEventListener("click", () => {
+        const cur = loadTracks(); delete cur[item.url]; saveTracks(cur);
+        const bms = loadBookmarks(); delete bms[item.url]; saveBookmarks(bms);
+        renderHistory();
+        toast("Удалено из истории");
+      });
+
+      actions.appendChild(play); actions.appendChild(restart); actions.appendChild(del);
+      div.appendChild(info); div.appendChild(actions);
+      historyList.appendChild(div);
+    });
+  }
+  $("#clearHistoryBtn").addEventListener("click", () => {
+    if (!confirm("Очистить всю историю и позиции?")) return;
+    saveTracks({}); saveBookmarks({});
+    renderHistory();
+    toast("История очищена");
+  });
+
+  // ---------- обработчики UI навигации и каталога ----------
+  brandHome.addEventListener("click", () => navigateTo("catalog"));
+  brandHome.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); navigateTo("catalog"); }
+  });
+  headerNowPlayingBtn.addEventListener("click", () => navigateTo("player"));
+
+  bookBackBtn.addEventListener("click", () => navigateTo("catalog"));
+  bookListenBtn.addEventListener("click", () => {
+    if (!activeBookPath) return;
+    const rec = foldersByPath.get(activeBookPath);
+    if (!rec || !rec.audios.length) return;
+    const prog = getBookProgress(rec);
+    startBookPlayback(activeBookPath, prog.resumeItem || rec.audios[0], true);
+  });
+  bookStartOverBtn.addEventListener("click", () => {
+    if (!activeBookPath) return;
+    const rec = foldersByPath.get(activeBookPath);
+    if (!rec || !rec.audios.length) return;
+    const first = rec.audios[0];
+    const key = folderFileKey(ROOT_URL, first.path);
+    upsertTrack(key, {position: 0, finished: false});
+    startBookPlayback(activeBookPath, first, true);
+  });
+  bookShareBtn.addEventListener("click", () => shareBook(activeBookPath));
+
+  playerBackToBookBtn.addEventListener("click", () => {
+    if (currentBookPath) navigateTo("book", { path: currentBookPath });
+    else navigateTo("catalog");
+  });
+  playerBackToCatalogBtn.addEventListener("click", () => navigateTo("catalog"));
+
+  catalogSearch.addEventListener("input", () => {
+    catalogSearchQuery = catalogSearch.value.trim();
+    catalogSearchClear.classList.toggle("hidden", !catalogSearchQuery);
+    renderCatalog();
+  });
+  catalogSearchClear.addEventListener("click", () => {
+    catalogSearchQuery = "";
+    catalogSearch.value = "";
+    catalogSearchClear.classList.add("hidden");
+    catalogSearch.focus();
+    renderCatalog();
+  });
+  viewGridBtn.addEventListener("click", () => {
+    catalogViewMode = "grid";
+    settings.viewMode = "grid"; saveSettings(settings);
+    updateViewToggleUI();
+    renderCatalog();
+  });
+  viewListBtn.addEventListener("click", () => {
+    catalogViewMode = "list";
+    settings.viewMode = "list"; saveSettings(settings);
+    updateViewToggleUI();
+    renderCatalog();
+  });
+  $$("[data-status-filter]", catalogFilters).forEach(btn => {
+    btn.addEventListener("click", () => {
+      catalogStatusFilter = btn.getAttribute("data-status-filter") || "all";
+      $$("[data-status-filter]", catalogFilters).forEach(b => b.classList.toggle("active", b === btn));
+      renderCatalog();
+    });
+  });
+  catalogRefreshBtn.addEventListener("click", () => {
+    toast("Обновляем каталог…");
+    loadCatalog(true);
+  });
+
+  folderRefreshBtn.addEventListener("click", async () => {
+    if (!currentFolder) return;
+    setStatusBox(folderStatus, '<span class="spinner" aria-hidden="true"></span><span>Обновляем список файлов…</span>');
+    try{
+      const rec = await fetchFolderDetails(currentFolder.currentPath, true);
+      currentFolder.folderName = rec.name || currentFolder.folderName;
+      currentFolder.items = rec.audios.map(a => Object.assign({}, a, { type: "file" }));
+      persistFolder();
+      setStatusBox(folderStatus, "");
+      renderPlaylist();
+      toast("Список обновлён");
+    }catch(e){
+      setStatusBox(folderStatus, '<span>⚠</span><span>' + escapeHtml(yandexErrorText(e)) + '</span>', "error");
+    }
+  });
+
+  autoResumeChk.addEventListener("change", (e) => {
+    settings.autoResume = e.target.checked;
+    saveSettings(settings);
+    toast(e.target.checked ? "Автопродолжение включено" : "Автопродолжение выключено");
+  });
+  autoNextChk.addEventListener("change", (e) => {
+    settings.autoNext = e.target.checked;
+    saveSettings(settings);
+    toast(e.target.checked ? "Автопереход к следующему файлу включён" : "Автопереход выключен");
+  });
+
+  // ---------- Всплывающая Справка ----------
+  function openHelp(){
+    helpModal.classList.add("open");
+    helpModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("dialog-open");
+    updateMini();
+    helpCloseBtn.focus();
+  }
+  function closeHelp(){
+    helpModal.classList.remove("open");
+    helpModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("dialog-open");
+    updateMini();
+  }
+  helpBtn.addEventListener("click", openHelp);
+  footerHelpBtn.addEventListener("click", openHelp);
+  helpBackdrop.addEventListener("click", closeHelp);
+  helpCloseBtn.addEventListener("click", closeHelp);
+
+  // ---------- Мини-плеер, Media Session, Wake Lock, PWA ----------
+  let miniVisible = false;
+  function updateMini(){
+    const hasTrack = !!currentHref;
+    let showMini = false;
+    if (hasTrack && !document.body.classList.contains("dialog-open")){
+      if (activeView !== "player"){
+        showMini = true;
+      } else {
+        const r = playerCard.getBoundingClientRect();
+        showMini = !(r.bottom > 90 && r.top < window.innerHeight - 70);
+      }
+    }
+    miniVisible = showMini;
+    miniPlayer.classList.toggle("show", showMini);
+    document.body.classList.toggle("has-mini", showMini);
+    if (!showMini) return;
+    mpTitle.textContent = currentTitle || "Аудиофайл";
+    const parts = [];
+    if (isFinite(audio.duration) && audio.duration > 0){
+      parts.push(formatTime(audio.currentTime || 0) + " / " + formatTime(audio.duration));
+    }
+    if (currentFolderName) parts.push("📖 " + currentFolderName);
+    mpMeta.textContent = parts.join(" · ");
+    const d = audio.duration;
+    mpProgress.style.width = (isFinite(d) && d > 0) ? Math.min(100, ((audio.currentTime || 0) / d) * 100) + "%" : "0%";
+    const paused = audio.paused;
+    mpPlayIcon.classList.toggle("hidden", !paused);
+    mpPauseIcon.classList.toggle("hidden", paused);
+    mpPrev.disabled = !hasPrevTrack();
+    mpNext.disabled = !hasNextTrack();
+  }
+  let miniTickScheduled = false;
+  function scheduleMini(){
+    if (miniTickScheduled) return;
+    miniTickScheduled = true;
+    requestAnimationFrame(() => { miniTickScheduled = false; if (miniVisible || !!currentHref) updateMini(); });
+  }
+  window.addEventListener("scroll", scheduleMini, { passive: true });
+  window.addEventListener("resize", scheduleMini);
+  mpPlayBtn.addEventListener("click", togglePlay);
+  mpPrev.addEventListener("click", () => { if (hasPrevTrack()) goPrevTrack(); });
+  mpNext.addEventListener("click", () => { if (hasNextTrack()) goNextTrack(); });
+  const openPlayerFromMini = () => {
+    navigateTo("player");
+    setTimeout(() => playerCard.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+  mpInfo.addEventListener("click", openPlayerFromMini);
+  mpInfo.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); openPlayerFromMini(); } });
+
+  function updateMediaSession(){
+    if (!("mediaSession" in navigator)) return;
+    try{
+      if (!currentHref){ navigator.mediaSession.metadata = null; return; }
+      const artwork = currentCoverUrl
+        ? [{ src: currentCoverUrl }]
+        : [
+            { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
+            { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          ];
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTitle || "Аудиофайл",
+        artist: currentFolderName || "Аудиотека",
+        album: CATALOG_CONFIG.title || "Аудиотека",
+        artwork: artwork,
+      });
+    }catch(e){}
+  }
+  function updateMediaSessionState(){
+    if (!("mediaSession" in navigator)) return;
+    try{
+      navigator.mediaSession.playbackState = audio.paused ? "paused" : "playing";
+      if (isFinite(audio.duration) && audio.duration > 0 && "setPositionState" in navigator.mediaSession){
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate || 1,
+          position: Math.min(audio.currentTime || 0, audio.duration),
+        });
+      }
+    }catch(e){}
+  }
+  function initMediaSession(){
+    if (!("mediaSession" in navigator)) return;
+    const handlers = {
+      play: () => togglePlay(),
+      pause: () => { if (!audio.paused) togglePlay(); },
+      seekbackward: (d) => seekBy(-((d && d.seekOffset) || 10)),
+      seekforward: (d) => seekBy((d && d.seekOffset) || 10),
+      seekto: (d) => {
+        if (d && typeof d.seekTime === "number"){
+          cancelResume();
+          try{ audio.currentTime = d.seekTime; }catch(e){}
+        }
+      },
+      nexttrack: () => { if (hasNextTrack()) goNextTrack(); },
+      previoustrack: () => { if (hasPrevTrack()) goPrevTrack(); },
+      stop: () => { if (!audio.paused) togglePlay(); },
+    };
+    Object.keys(handlers).forEach((name) => {
+      try{ navigator.mediaSession.setActionHandler(name, handlers[name]); }catch(e){}
+    });
+  }
+
+  let wakeLock = null;
+  async function requestWakeLock(){
+    if (!("wakeLock" in navigator) || !("request" in navigator.wakeLock)) return;
+    try{
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    }catch(e){}
+  }
+  function releaseWakeLock(){
+    try{ if (wakeLock) wakeLock.release(); }catch(e){}
+    wakeLock = null;
+  }
+
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    installRow.classList.add("show");
+  });
+  installBtn && installBtn.addEventListener("click", async () => {
+    if (!installPrompt){
+      toast("Откройте меню браузера (⋮) → «Установить приложение» / «Добавить на главный экран»");
+      return;
+    }
+    try{
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice && choice.outcome === "accepted") toast("Приложение установлено");
+    }catch(e){}
+    installPrompt = null;
+    installRow.classList.remove("show");
+  });
+  window.addEventListener("appinstalled", () => {
+    installRow.classList.remove("show");
+    toast("Приложение установлено на устройство");
+  });
+  try{
+    if (location.protocol.startsWith("http") && !matchMedia("(display-mode: standalone)").matches){
+      fetch("manifest.webmanifest", { method: "HEAD" })
+        .then(r => { if (r.ok && !installPrompt) installRow.classList.add("show"); })
+        .catch(() => {});
+    }
+  }catch(e){}
+
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("service-worker.js").catch(() => {});
+    });
+  }
+
+  // ---------- keyboard ----------
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && helpModal.classList.contains("open")){
+      e.preventDefault();
+      closeHelp();
+      return;
+    }
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) return;
+    if (e.key === " " || e.key.toLowerCase() === "k"){
+      if (currentHref){ e.preventDefault(); togglePlay(); }
+    }
+    else if (e.key.toLowerCase() === "j"){ e.preventDefault(); seekBy(e.shiftKey ? -30 : -10); }
+    else if (e.key.toLowerCase() === "l"){ e.preventDefault(); seekBy(e.shiftKey ? 30 : 10); }
+    else if (e.key === "ArrowLeft"){ e.preventDefault(); seekBy(-10); }
+    else if (e.key === "ArrowRight"){ e.preventDefault(); seekBy(10); }
+    else if (e.key === "ArrowUp"){ e.preventDefault(); audio.volume = Math.min(1, audio.volume + 0.1); volumeRange.value = String(audio.volume); settings.volume = audio.volume; saveSettings(settings); }
+    else if (e.key === "ArrowDown"){ e.preventDefault(); audio.volume = Math.max(0, audio.volume - 0.1); volumeRange.value = String(audio.volume); settings.volume = audio.volume; saveSettings(settings); }
+    else if (e.key.toLowerCase() === "m"){ muteBtn.click(); }
+    else if (e.key.toLowerCase() === "p"){ e.preventDefault(); if (hasPrevTrack()) goPrevTrack(); }
+    else if (e.key.toLowerCase() === "n"){ e.preventDefault(); if (hasNextTrack()) goNextTrack(); }
+    else if (/^[0-9]$/.test(e.key) && isFinite(audio.duration) && audio.duration > 0){
+      cancelResume();
+      const pct = parseInt(e.key, 10) * 10;
+      try{ audio.currentTime = (pct / 100) * audio.duration; }catch(err){}
+    }
+  });
+
+  window.addEventListener("beforeunload", savePosition);
+
+  // ---------- init ----------
+  renderHistory();
+  updateTimeUI();
+  initMediaSession();
+  updateMediaSessionState();
+  updateMini();
+  applyRouteFromHash();
+  loadCatalog(false);
+})();
+</script>
+</body>
+</html>
