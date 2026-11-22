@@ -772,6 +772,7 @@
     <section class="card shelf-card hidden" id="continueShelf" aria-label="Продолжить прослушивание">
       <div class="shelf-head">
         <h2>▶ Продолжить прослушивание</h2>
+        <button class="btn btn-sm btn-ghost" type="button" id="continueShelfClearBtn" style="margin-left:auto" title="Очистить историю и позиции прослушивания">Очистить историю</button>
       </div>
       <div class="shelf-grid" id="continueShelfGrid"></div>
     </section>
@@ -801,9 +802,9 @@
         <button type="button" class="chip" data-status-filter="in_progress">В процессе</button>
         <button type="button" class="chip" data-status-filter="new">Новые</button>
         <button type="button" class="chip" data-status-filter="done">Прослушанные</button>
-        <span class="catalog-stats" id="catalogStats"></span>
+        <button type="button" class="chip cat-chip active" data-category-filter="all">Все разделы</button>
+        <button type="button" class="chip cat-chip" data-category-filter="__root_books__">Книги без раздела</button>
       </div>
-      <div class="toolbar-filters hidden" id="catalogCategoryChips" aria-label="Разделы каталога"></div>
       <div class="status" id="catalogStatus" role="status" aria-live="polite"></div>
     </section>
 
@@ -1178,14 +1179,13 @@
   // Catalog elements
   const continueShelf = $("#continueShelf");
   const continueShelfGrid = $("#continueShelfGrid");
+  const continueShelfClearBtn = $("#continueShelfClearBtn");
   const catalogSearch = $("#catalogSearch");
   const catalogSearchClear = $("#catalogSearchClear");
   const viewGridBtn = $("#viewGridBtn");
   const viewListBtn = $("#viewListBtn");
   const catalogRefreshBtn = $("#catalogRefreshBtn");
   const catalogFilters = $("#catalogFilters");
-  const catalogCategoryChips = $("#catalogCategoryChips");
-  const catalogStats = $("#catalogStats");
   const catalogStatus = $("#catalogStatus");
   const catalogContent = $("#catalogContent");
 
@@ -2141,6 +2141,13 @@
     return true;
   }
 
+  // Актуализирует активное состояние кнопок фильтра разделов
+  function updateCategoryFilterUI(){
+    $$("[data-category-filter]", catalogFilters).forEach(btn => {
+      btn.classList.toggle("active", btn.getAttribute("data-category-filter") === catalogCategoryFilter);
+    });
+  }
+
   function buildBookCard(rec){
     const card = document.createElement("article");
     card.className = "book-card";
@@ -2287,8 +2294,7 @@
     const rootRec = foldersByPath.get("/");
     if (!rootRec || !rootRec.loaded){
       catalogContent.innerHTML = "";
-      catalogStats.textContent = "";
-      catalogCategoryChips.classList.add("hidden");
+      updateCategoryFilterUI();
       return;
     }
 
@@ -2299,43 +2305,8 @@
     const sectionDirs = rootDirs.filter(r => r.loaded && r.dirs.length > 0 && r.audios.length === 0);
     const directBookDirs = rootDirs.filter(r => !(r.loaded && r.dirs.length > 0 && r.audios.length === 0));
 
-    // Чипы разделов (если есть секции)
-    if (sectionDirs.length > 0){
-      catalogCategoryChips.classList.remove("hidden");
-      catalogCategoryChips.innerHTML = "";
-      const allChip = document.createElement("button");
-      allChip.type = "button";
-      allChip.className = "chip cat-chip" + (catalogCategoryFilter === "all" ? " active" : "");
-      allChip.textContent = "Все разделы";
-      allChip.addEventListener("click", () => { catalogCategoryFilter = "all"; renderCatalog(); });
-      catalogCategoryChips.appendChild(allChip);
-
-      if (directBookDirs.length > 0){
-        const rootBooksChip = document.createElement("button");
-        rootBooksChip.type = "button";
-        rootBooksChip.className = "chip cat-chip" + (catalogCategoryFilter === "__root_books__" ? " active" : "");
-        rootBooksChip.textContent = "Книги без раздела";
-        rootBooksChip.addEventListener("click", () => { catalogCategoryFilter = "__root_books__"; renderCatalog(); });
-        catalogCategoryChips.appendChild(rootBooksChip);
-      }
-
-      sectionDirs.forEach(sec => {
-        const c = document.createElement("button");
-        c.type = "button";
-        c.className = "chip cat-chip" + (catalogCategoryFilter === sec.path ? " active" : "");
-        c.textContent = "📁 " + sec.name;
-        c.addEventListener("click", () => {
-          catalogCategoryFilter = sec.path;
-          expandedSections.add(sec.path);
-          renderCatalog();
-        });
-        catalogCategoryChips.appendChild(c);
-      });
-    } else {
-      catalogCategoryFilter = "all";
-      catalogCategoryChips.classList.add("hidden");
-      catalogCategoryChips.innerHTML = "";
-    }
+    // Актуализируем активное состояние кнопок фильтра разделов
+    updateCategoryFilterUI();
 
     catalogContent.innerHTML = "";
     let totalVisibleCards = 0;
@@ -2472,7 +2443,6 @@
       }
     }
 
-    catalogStats.textContent = "Показано: " + totalVisibleCards;
   }
 
   // ---------- СТРАНИЦА КНИГИ ----------
@@ -3961,12 +3931,15 @@
       historyList.appendChild(div);
     });
   }
-  $("#clearHistoryBtn").addEventListener("click", () => {
+  function clearAllHistory(){
     if (!confirm("Очистить всю историю и позиции?")) return;
     saveTracks({}); saveBookmarks({});
     renderHistory();
+    renderContinueShelf();
     toast("История очищена");
-  });
+  }
+  $("#clearHistoryBtn").addEventListener("click", clearAllHistory);
+  continueShelfClearBtn.addEventListener("click", clearAllHistory);
 
   // ---------- обработчики UI навигации и каталога ----------
   brandHome.addEventListener("click", () => navigateTo("catalog"));
@@ -4028,6 +4001,13 @@
     btn.addEventListener("click", () => {
       catalogStatusFilter = btn.getAttribute("data-status-filter") || "all";
       $$("[data-status-filter]", catalogFilters).forEach(b => b.classList.toggle("active", b === btn));
+      renderCatalog();
+    });
+  });
+  $$("[data-category-filter]", catalogFilters).forEach(btn => {
+    btn.addEventListener("click", () => {
+      catalogCategoryFilter = btn.getAttribute("data-category-filter") || "all";
+      updateCategoryFilterUI();
       renderCatalog();
     });
   });
