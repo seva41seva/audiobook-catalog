@@ -3289,6 +3289,8 @@
     if (document.visibilityState === "visible"){
       const d = audio.duration;
       if (isFinite(d) && d > 0 && (d - (audio.currentTime || 0)) < TAIL_SEC) maybeAdvanceFromTail("visible-tail");
+      // Экран был выключен — таймеры в фоне замирают, автопереход мог застрять. Повторим запуск следующего файла.
+      if (advancing && audio.paused && canAutoAdvance()) resumePendingAdvance();
       if (!audio.paused) requestWakeLock();
       updateMini();
       updateMediaSessionState();
@@ -3313,6 +3315,18 @@
   let advanceAttempts = 0;
   let advanceStartedAt = 0;
   let advanceCooldownUntil = 0;
+  let advanceCheckTimer = null;
+function scheduleAdvanceCheck(delay){
+  if (advanceCheckTimer){ clearTimeout(advanceCheckTimer); advanceCheckTimer = null; }
+  advanceCheckTimer = setTimeout(() => { advanceCheckTimer = null; checkAdvanceResult(); }, delay);
+}
+function resumePendingAdvance(){
+  if (!advancing || !advanceTarget) return false;
+  if (!audio.paused && audio.currentTime > 0){ advancing = false; advanceAttempts = 0; return true; }
+  openAdvanceTarget(true);
+  scheduleAdvanceCheck(6000);
+  return true;
+}
 
   function folderForAdvance(){
     if (currentFolder) return currentFolder;
@@ -3361,7 +3375,7 @@
     try{ hrefCache.clear(); }catch(e){}
     if (!advanceTarget) return;
     openAdvanceTarget(true);
-    setTimeout(checkAdvanceResult, 6000);
+    scheduleAdvanceCheck(6000);
   }
   function checkAdvanceResult(){
     if (!advancing) return;
@@ -3377,7 +3391,7 @@
     if (!canAutoAdvance()) return false;
     const now = Date.now();
     if (reason !== "manual" && now < advanceCooldownUntil) return false;
-    if (advancing && now - advanceStartedAt < 60000) return true;
+    if (advancing && now - advanceStartedAt < 10000) return true;
     if (advancing) advancing = false;
     if (now - lastAdvanceAt < 1200) return true;
 
@@ -3397,7 +3411,7 @@
 
     toast("Дальше: " + (item.name || "следующий файл"));
     try{ openAdvanceTarget(true); }catch(e){ advancing = false; return false; }
-    setTimeout(checkAdvanceResult, 6000);
+    scheduleAdvanceCheck(6000);
     return true;
   }
 
