@@ -189,7 +189,7 @@ async function invoke(handler, action, method = "GET", { body, query, token } = 
     httpMethod: method,
     headers: {
       origin: "https://seva41seva.github.io",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(token ? { "x-session-token": token } : {}),
     },
     queryStringParameters: { action, ...(query || {}) },
     body: body ? JSON.stringify(body) : "",
@@ -217,7 +217,14 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
   const gw = require(modPath);
 
   try {
-    // 1. Bootstrap check
+    // 1. Bootstrap check & CORS preflight for X-Session-Token
+    const preflight = await gw.handler({
+      httpMethod: "OPTIONS",
+      headers: { origin: "https://seva41seva.github.io" },
+    });
+    assert.equal(preflight.statusCode, 204);
+    assert.match(preflight.headers["Access-Control-Allow-Headers"], /X-Session-Token/i);
+
     const boot = await invoke(gw.handler, "public/bootstrap");
     assert.equal(boot.statusCode, 200);
     assert.equal(boot.data.yandexClientId, "cid_123");
@@ -325,10 +332,10 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
     assert.equal(sync1.statusCode, 200);
     assert.equal(sync1.data.progress.tracks[trackKey].completed, true);
 
-    // Simulate another device clearing history while keeping completed=true OR older uncompleted sync
+    // Simulate keepalive unload sync (no custom headers, _sessionToken in body) clearing history while keeping completed=true
     const sync2 = await invoke(gw.handler, "progress/sync", "POST", {
-      token: mamaToken,
       body: {
+        _sessionToken: mamaToken,
         tracks: {
           [trackKey]: {
             url: trackKey,
@@ -346,8 +353,10 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
         },
       },
     });
+    assert.equal(sync2.statusCode, 200);
     assert.equal(sync2.data.progress.tracks[trackKey].inHistory, false);
     assert.equal(sync2.data.progress.tracks[trackKey].completed, true);
+    assert.equal(sync2.data.progress._sessionToken, undefined);
 
     // 7. Catalog cache rebuild & public proxy WITHOUT Authorization header + windows-1251 decoding
     const rebuild = await invoke(gw.handler, "admin/cache-rebuild", "POST", { token: adminToken });

@@ -1842,7 +1842,7 @@
     }
     const headers = {};
     if (opts.auth !== false && currentSessionToken){
-      headers["Authorization"] = "Bearer " + currentSessionToken;
+      headers["X-Session-Token"] = currentSessionToken;
     }
     let bodyStr;
     if (opts.body !== undefined){
@@ -2009,13 +2009,13 @@
     try{
       const url = new URL(API_BASE);
       url.searchParams.set("action", "progress/sync");
+      const payload = Object.assign({ _sessionToken: currentSessionToken }, buildProgressPayload());
       fetch(url.toString(), {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + currentSessionToken,
+          "Content-Type": "text/plain;charset=UTF-8",
         },
-        body: JSON.stringify(buildProgressPayload()),
+        body: JSON.stringify(payload),
         keepalive: true,
         referrerPolicy: "no-referrer",
       }).catch(() => {});

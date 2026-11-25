@@ -931,16 +931,23 @@ async function buildAdminUsersAndStats(overrideToken = null) {
 
 // -------------------- Авторизация запросов --------------------
 
-function extractBearerToken(headers) {
+function extractSessionToken(headers, body = null) {
+  const custom = headers["x-session-token"];
+  if (typeof custom === "string" && custom.trim()) {
+    return custom.trim();
+  }
   const auth = headers.authorization || "";
   if (auth.toLowerCase().startsWith("bearer ")) {
     return auth.slice(7).trim();
   }
+  if (body && typeof body._sessionToken === "string" && body._sessionToken.trim()) {
+    return body._sessionToken.trim();
+  }
   return "";
 }
 
-async function requireAuth(headers, requireAdmin = false) {
-  const token = extractBearerToken(headers);
+async function requireAuth(headers, requireAdmin = false, body = null) {
+  const token = extractSessionToken(headers, body);
   const payload = verifyJwt(token);
   if (!payload || !payload.sub) {
     throw httpError(401, "Требуется вход в систему.");
@@ -1193,7 +1200,7 @@ async function handleAction(action, method, query, body, headers) {
   }
 
   if (action === "progress/sync" && method === "POST") {
-    const { payload, user } = await requireAuth(headers, false);
+    const { payload, user } = await requireAuth(headers, false, body);
     const progressPath = `app:/progress/${payload.sub}.json`;
     const existing = await diskReadJson(progressPath, null);
     const merged = mergeProgressDocuments(existing, body, payload.sub);
@@ -1426,7 +1433,7 @@ function buildCorsHeaders(headers) {
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Headers": "Content-Type,X-Session-Token,Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
