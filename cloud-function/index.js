@@ -249,11 +249,21 @@ function isAllowedAdminYandexUser(info) {
   }
   const allowedList = allowedRaw
     .split(",")
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim().replace(/^['"]+|['"]+$/g, "").replace(/^@/, "").toLowerCase())
     .filter(Boolean);
-  const uid = String(info.id || "").toLowerCase();
-  const login = String(info.login || "").toLowerCase();
-  return allowedList.includes(uid) || (login && allowedList.includes(login));
+  const uid = String(info.id || "").trim().toLowerCase();
+  const login = String(info.login || "").trim().toLowerCase();
+  const email = String(info.default_email || "").trim().toLowerCase();
+  const allowedNormalized = new Set(allowedList);
+  for (const item of allowedList) {
+    const m = item.match(/^([^@]+)@(?:yandex\.[a-z.]+|ya\.ru)$/i);
+    if (m) allowedNormalized.add(m[1]);
+  }
+  return Boolean(
+    (uid && allowedNormalized.has(uid)) ||
+    (login && allowedNormalized.has(login)) ||
+    (email && allowedNormalized.has(email))
+  );
 }
 
 // -------------------- Клиент Яндекс Диска (app:/) --------------------
@@ -983,7 +993,8 @@ async function handleAction(action, method, query, body, headers) {
     const oauthData = await exchangeAuthCode(code, redirectUri);
     const info = await fetchYandexUserInfo(oauthData.access_token);
     if (!isAllowedAdminYandexUser(info)) {
-      throw httpError(403, `Аккаунт Яндекса «${info.login || info.id}» не является администратором этого каталога.`);
+      const idHint = info.id ? ` (ID: ${info.id})` : "";
+      throw httpError(403, `Аккаунт Яндекса «${info.login || info.id}»${idHint} не является администратором этого каталога. Проверьте переменную ADMIN_YANDEX_ID в Yandex Cloud.`);
     }
 
     const ttlMs = Math.max(60, (Number(oauthData.expires_in) || 3600) - 300) * 1000;
@@ -1494,5 +1505,6 @@ exports._internal = {
   mergeTrackState,
   mergeProgressDocuments,
   normalizeTrackRecord,
+  isAllowedAdminYandexUser,
   tokenCache,
 };

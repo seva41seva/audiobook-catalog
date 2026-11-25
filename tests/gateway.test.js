@@ -223,12 +223,21 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
     assert.equal(boot.data.yandexClientId, "cid_123");
     assert.equal(boot.data.diskConfigured, false);
 
-    // 2. Non-admin Yandex login rejected
+    // 2. Non-admin Yandex login rejected with ID hint
     platform.setYandexUser({ id: "999", login: "stranger", display_name: "Чужой" });
     const badAdmin = await invoke(gw.handler, "auth/admin-yandex", "POST", {
       body: { code: "oauth_code_1", redirectUri: "https://seva41seva.github.io/audiobook-catalog/" },
     });
     assert.equal(badAdmin.statusCode, 403);
+    assert.match(badAdmin.data.error, /ID: 999/);
+
+    // isAllowedAdminYandexUser tolerates @yandex.ru, quotes, @prefix, and default_email
+    const prevAdminEnv = process.env.ADMIN_YANDEX_ID;
+    process.env.ADMIN_YANDEX_ID = '"seva41seva@yandex.ru", @other_admin';
+    assert.equal(gw._internal.isAllowedAdminYandexUser({ id: "123", login: "seva41seva" }), true);
+    assert.equal(gw._internal.isAllowedAdminYandexUser({ id: "123", login: "other_admin" }), true);
+    assert.equal(gw._internal.isAllowedAdminYandexUser({ id: "123", login: "stranger" }), false);
+    process.env.ADMIN_YANDEX_ID = prevAdminEnv;
 
     // 3. Valid admin login initializes app:/ and returns setupPending refresh token
     platform.setYandexUser({ id: "100500", login: "admin_user", display_name: "Главный Админ" });

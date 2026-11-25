@@ -53,7 +53,7 @@
 | --- | --- | --- |
 | `YANDEX_CLIENT_ID` | Да | ClientID вашего OAuth-приложения |
 | `YANDEX_CLIENT_SECRET` | Да | Client secret вашего OAuth-приложения |
-| `ADMIN_YANDEX_ID` | Да | Ваш логин или числовой UID в Яндексе (можно несколько через запятую) |
+| `ADMIN_YANDEX_ID` | Да | Ваш логин в Яндекс ID (без `@yandex.ru`, например `seva41seva`) или числовой UID в Яндексе (не ID в Yandex Cloud; можно несколько через запятую) |
 | `SESSION_SECRET` | Да | Случайная секретная строка от 32 символов (например, вывод `openssl rand -hex 32`) |
 | `CATALOG_PUBLIC_URL` | Желательно | Публичная ссылка на папку с книгами, например `https://disk.yandex.com/d/Qb_HBohs2k5iEg` |
 | `ALLOWED_ORIGINS` | Желательно | Origin вашего сайта для CORS, например `https://seva41seva.github.io` (или `*`) |
