@@ -1,5 +1,5 @@
-/* Service worker: оболочка приложения кэшируется, аудио и API Яндекса — всегда из сети. */
-const CACHE = "yd-audio-player-v4";
+/* Service worker: оболочка приложения кэшируется, аудио, API Яндекса и шлюз авторизации — всегда из сети. */
+const CACHE = "yd-audio-player-v5";
 const SHELL = [
   "./",
   "./index.html",
@@ -29,14 +29,15 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
 
-  // Аудио, прямые ссылки и API Яндекс Диска не кэшируем (нужны актуальные токены)
+  // Аудио, прямые ссылки, API Яндекса и облачный шлюз не кэшируем (нужны актуальные токены и данные)
   const isMedia = req.destination === "audio" || req.destination === "video" ||
     /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)(\?|$)/i.test(url.pathname);
-  const isApi = /cloud-api\.yandex\.net|downloader\.disk\.yandex\.ru|storage\.yandex\.|disk\.yandex\.|yadi\.sk/.test(url.hostname + url.pathname);
+  const isApi = /cloud-api\.yandex\.net|downloader\.disk\.yandex\.ru|storage\.yandex\.|disk\.yandex\.|yadi\.sk|oauth\.yandex\.ru|login\.yandex\.ru|functions\.yandexcloud\.net/.test(url.hostname + url.pathname) ||
+    url.searchParams.has("action");
   const isProxy = /corsproxy\.io|allorigins|codetabs\.com/.test(url.hostname);
   if (isMedia || isApi || isProxy) return;
 
-  // Навигация: сеть, при офлайне — кэш
+  // Навигация: сеть, при офлайне — кэш (игнорируем ?code=... в ключе кэша)
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
