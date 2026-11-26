@@ -249,11 +249,21 @@ function isAllowedAdminYandexUser(info) {
   }
   const allowedList = allowedRaw
     .split(",")
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim().replace(/^['"]+|['"]+$/g, "").replace(/^@/, "").toLowerCase())
     .filter(Boolean);
-  const uid = String(info.id || "").toLowerCase();
-  const login = String(info.login || "").toLowerCase();
-  return allowedList.includes(uid) || (login && allowedList.includes(login));
+  const uid = String(info.id || "").trim().toLowerCase();
+  const login = String(info.login || "").trim().toLowerCase();
+  const email = String(info.default_email || "").trim().toLowerCase();
+  const allowedNormalized = new Set(allowedList);
+  for (const item of allowedList) {
+    const m = item.match(/^([^@]+)@(?:yandex\.[a-z.]+|ya\.ru)$/i);
+    if (m) allowedNormalized.add(m[1]);
+  }
+  return Boolean(
+    (uid && allowedNormalized.has(uid)) ||
+    (login && allowedNormalized.has(login)) ||
+    (email && allowedNormalized.has(email))
+  );
 }
 
 // -------------------- Клиент Яндекс Диска (app:/) --------------------
@@ -408,6 +418,7 @@ function createEmptyProgress(userId) {
     version: 2,
     userId,
     updatedAt: Date.now(),
+    historyClearedAt: 0,
     tracks: {},
     bookmarks: {},
     bookmarksMeta: {},
@@ -419,7 +430,8 @@ function createEmptyProgress(userId) {
 function normalizeTrackRecord(tr, fallbackUrl) {
   if (!tr || typeof tr !== "object") return null;
   const completed = typeof tr.completed === "boolean" ? tr.completed : Boolean(tr.finished);
-  const lastPlayedAt = Number(tr.lastPlayedAt || tr.updatedAt || 0);
+  const lastPlayedAt = tr.lastPlayedAt !== undefined ? Number(tr.lastPlayedAt || 0) : Number(tr.updatedAt || 0);
+  const historyUpdatedAt = tr.historyUpdatedAt !== undefined ? Number(tr.historyUpdatedAt || 0) : lastPlayedAt;
   const completedAt = Number(tr.completedAt || (completed ? (tr.updatedAt || 0) : 0));
   return {
     url: tr.url || fallbackUrl || "",
@@ -432,13 +444,14 @@ function normalizeTrackRecord(tr, fallbackUrl) {
     completedAt,
     completedBy: tr.completedBy || (completed ? "auto" : null),
     lastPlayedAt,
+    historyUpdatedAt,
     inHistory: tr.inHistory !== false,
     rate: typeof tr.rate === "number" ? tr.rate : null,
     folderName: tr.folderName || null,
     folderUrl: tr.folderUrl || null,
     filePath: tr.filePath || null,
     bookPath: tr.bookPath || null,
-    updatedAt: Math.max(lastPlayedAt, completedAt, Number(tr.updatedAt || 0)),
+    updatedAt: Math.max(lastPlayedAt, historyUpdatedAt, completedAt, Number(tr.updatedAt || 0)),
   };
 }
 
@@ -448,7 +461,9 @@ function mergeTrackState(remoteRaw, localRaw, key) {
   if (!remote) return local;
   if (!local) return remote;
 
-  const playSource = (local.lastPlayedAt || 0) >= (remote.lastPlayedAt || 0) ? local : remote;
+  const remotePlayTs = Math.max(remote.lastPlayedAt || 0, remote.historyUpdatedAt || 0);
+  const localPlayTs = Math.max(local.lastPlayedAt || 0, local.historyUpdatedAt || 0);
+  const playSource = localPlayTs >= remotePlayTs ? local : remote;
   const compSource = (local.completedAt || 0) >= (remote.completedAt || 0) ? local : remote;
 
   return {
@@ -459,6 +474,7 @@ function mergeTrackState(remoteRaw, localRaw, key) {
     duration: playSource.duration ?? remote.duration ?? local.duration ?? null,
     position: playSource.position || 0,
     lastPlayedAt: playSource.lastPlayedAt || 0,
+    historyUpdatedAt: Math.max(playSource.historyUpdatedAt || 0, playSource.lastPlayedAt || 0),
     inHistory: playSource.inHistory !== false,
     rate: playSource.rate ?? remote.rate ?? local.rate ?? null,
     folderName: playSource.folderName || remote.folderName || local.folderName || null,
@@ -468,13 +484,21 @@ function mergeTrackState(remoteRaw, localRaw, key) {
     completed: Boolean(compSource.completed),
     completedAt: compSource.completedAt || 0,
     completedBy: compSource.completedBy || null,
-    updatedAt: Math.max(playSource.lastPlayedAt || 0, compSource.completedAt || 0),
+    updatedAt: Math.max(playSource.lastPlayedAt || 0, playSource.historyUpdatedAt || 0, compSource.completedAt || 0),
   };
 }
 
 function mergeProgressDocuments(existingRaw, incomingRaw, userId) {
   const existing = existingRaw && typeof existingRaw === "object" ? existingRaw : createEmptyProgress(userId);
   const incoming = incomingRaw && typeof incomingRaw === "object" ? incomingRaw : {};
+  const now = Date.now();
+  const TOMBSTONE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+  const historyClearedAt = Math.max(
+    Number(existing.historyClearedAt || 0),
+    Number(incoming.historyClearedAt || 0),
+    Number(existing.settings?.historyClearedAt || 0),
+    Number(incoming.settings?.historyClearedAt || 0)
+  );
 
   const tracks = {};
   const existingTracks = existing.tracks || {};
@@ -482,22 +506,42 @@ function mergeProgressDocuments(existingRaw, incomingRaw, userId) {
   const allKeys = new Set([...Object.keys(existingTracks), ...Object.keys(incomingTracks)]);
   for (const key of allKeys) {
     if (!key || key.startsWith("blob:")) continue;
-    const merged = mergeTrackState(existingTracks[key], incomingTracks[key], key);
-    if (merged) tracks[key] = merged;
+    let merged = mergeTrackState(existingTracks[key], incomingTracks[key], key);
+    if (!merged) continue;
+    const playTs = Math.max(merged.lastPlayedAt || 0, merged.historyUpdatedAt || 0);
+    if (historyClearedAt > 0 && playTs <= historyClearedAt) {
+      merged = {
+        ...merged,
+        position: 0,
+        lastPlayedAt: 0,
+        historyUpdatedAt: historyClearedAt,
+        inHistory: false,
+        updatedAt: Math.max(merged.completedAt || 0, historyClearedAt),
+      };
+      if (!merged.completed) continue;
+    } else if (!merged.completed && merged.inHistory === false && merged.position <= 0 && playTs > 0 && (now - playTs > TOMBSTONE_TTL_MS)) {
+      continue;
+    }
+    tracks[key] = merged;
   }
 
   const bookmarks = { ...(existing.bookmarks || {}) };
   const bookmarksMeta = { ...(existing.bookmarksMeta || {}) };
   const inBookmarks = incoming.bookmarks || {};
   const inMeta = incoming.bookmarksMeta || {};
-  for (const key of new Set([...Object.keys(inBookmarks), ...Object.keys(inMeta)])) {
+  for (const key of new Set([...Object.keys(inBookmarks), ...Object.keys(inMeta), ...Object.keys(bookmarks), ...Object.keys(bookmarksMeta)])) {
     const inUpdated = Number(inMeta[key] || 0);
     const exUpdated = Number(bookmarksMeta[key] || 0);
-    if (inUpdated >= exUpdated) {
+    if (inUpdated >= exUpdated && (key in inBookmarks || key in inMeta)) {
       const list = Array.isArray(inBookmarks[key]) ? inBookmarks[key].slice(0, 100) : [];
       if (list.length) bookmarks[key] = list;
       else delete bookmarks[key];
-      bookmarksMeta[key] = inUpdated || Date.now();
+      bookmarksMeta[key] = inUpdated || now;
+    }
+    const finalUpdated = Number(bookmarksMeta[key] || 0);
+    if (historyClearedAt > 0 && finalUpdated <= historyClearedAt) {
+      delete bookmarks[key];
+      bookmarksMeta[key] = historyClearedAt;
     }
   }
 
@@ -505,12 +549,14 @@ function mergeProgressDocuments(existingRaw, incomingRaw, userId) {
   const inSetAt = Number(incoming.settingsUpdatedAt || 0);
   const settings = inSetAt >= exSetAt && incoming.settings && typeof incoming.settings === "object"
     ? { ...(existing.settings || {}), ...incoming.settings }
-    : (existing.settings || {});
+    : { ...(existing.settings || {}) };
+  if (historyClearedAt > 0) settings.historyClearedAt = historyClearedAt;
 
   return {
     version: 2,
     userId,
-    updatedAt: Date.now(),
+    updatedAt: now,
+    historyClearedAt,
     tracks,
     bookmarks,
     bookmarksMeta,
@@ -793,6 +839,7 @@ async function buildAdminUsersAndStats(overrideToken = null) {
       const tr = normalizeTrackRecord(rawTr, key);
       if (!tr) continue;
       if (tr.updatedAt > userLastActivity) userLastActivity = tr.updatedAt;
+      if (!tr.completed && tr.position <= 0 && !tr.inHistory) continue;
 
       if (tr.completed) {
         userCompletedFiles++;
@@ -921,16 +968,23 @@ async function buildAdminUsersAndStats(overrideToken = null) {
 
 // -------------------- Авторизация запросов --------------------
 
-function extractBearerToken(headers) {
+function extractSessionToken(headers, body = null) {
+  const custom = headers["x-session-token"];
+  if (typeof custom === "string" && custom.trim()) {
+    return custom.trim();
+  }
   const auth = headers.authorization || "";
   if (auth.toLowerCase().startsWith("bearer ")) {
     return auth.slice(7).trim();
   }
+  if (body && typeof body._sessionToken === "string" && body._sessionToken.trim()) {
+    return body._sessionToken.trim();
+  }
   return "";
 }
 
-async function requireAuth(headers, requireAdmin = false) {
-  const token = extractBearerToken(headers);
+async function requireAuth(headers, requireAdmin = false, body = null) {
+  const token = extractSessionToken(headers, body);
   const payload = verifyJwt(token);
   if (!payload || !payload.sub) {
     throw httpError(401, "Требуется вход в систему.");
@@ -983,7 +1037,8 @@ async function handleAction(action, method, query, body, headers) {
     const oauthData = await exchangeAuthCode(code, redirectUri);
     const info = await fetchYandexUserInfo(oauthData.access_token);
     if (!isAllowedAdminYandexUser(info)) {
-      throw httpError(403, `Аккаунт Яндекса «${info.login || info.id}» не является администратором этого каталога.`);
+      const idHint = info.id ? ` (ID: ${info.id})` : "";
+      throw httpError(403, `Аккаунт Яндекса «${info.login || info.id}»${idHint} не является администратором этого каталога. Проверьте переменную ADMIN_YANDEX_ID в Yandex Cloud.`);
     }
 
     const ttlMs = Math.max(60, (Number(oauthData.expires_in) || 3600) - 300) * 1000;
@@ -1182,7 +1237,7 @@ async function handleAction(action, method, query, body, headers) {
   }
 
   if (action === "progress/sync" && method === "POST") {
-    const { payload, user } = await requireAuth(headers, false);
+    const { payload, user } = await requireAuth(headers, false, body);
     const progressPath = `app:/progress/${payload.sub}.json`;
     const existing = await diskReadJson(progressPath, null);
     const merged = mergeProgressDocuments(existing, body, payload.sub);
@@ -1415,7 +1470,7 @@ function buildCorsHeaders(headers) {
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Headers": "Content-Type,X-Session-Token,Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -1494,5 +1549,6 @@ exports._internal = {
   mergeTrackState,
   mergeProgressDocuments,
   normalizeTrackRecord,
+  isAllowedAdminYandexUser,
   tokenCache,
 };

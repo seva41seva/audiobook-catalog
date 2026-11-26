@@ -1,5 +1,5 @@
 /* Service worker: оболочка приложения кэшируется, аудио, API Яндекса и шлюз авторизации — всегда из сети. */
-const CACHE = "yd-audio-player-v5";
+const CACHE = "yd-audio-player-v6";
 const SHELL = [
   "./",
   "./index.html",

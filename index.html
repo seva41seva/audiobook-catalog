@@ -223,9 +223,6 @@
   .chip.active{
     background:var(--accent-soft); color:#ffd2c5; border-color:rgba(252,63,29,.55);
   }
-  .chip.cat-chip.active{
-    background:rgba(77,163,255,.14); color:#b9d9ff; border-color:rgba(77,163,255,.5);
-  }
   .catalog-stats{
     margin-left:auto; font-size:12.5px; color:var(--muted2);
   }
@@ -991,10 +988,7 @@
       <div class="toolbar-filters" id="catalogFilters">
         <button type="button" class="chip active" data-status-filter="all">Все</button>
         <button type="button" class="chip" data-status-filter="in_progress">В процессе</button>
-        <button type="button" class="chip" data-status-filter="new">Новые</button>
         <button type="button" class="chip" data-status-filter="done">Прослушанные</button>
-        <button type="button" class="chip cat-chip active" data-category-filter="all">Все разделы</button>
-        <button type="button" class="chip cat-chip" data-category-filter="__root_books__">Книги без раздела</button>
       </div>
       <div class="status" id="catalogStatus" role="status" aria-live="polite"></div>
     </section>
@@ -1007,6 +1001,7 @@
     <div class="view-nav">
       <button class="btn btn-sm" type="button" id="bookBackBtn">← К каталогу</button>
       <nav class="breadcrumbs" id="bookBreadcrumbs" aria-label="Путь к книге"></nav>
+      <button class="btn btn-sm" type="button" id="bookRefreshBtn" style="margin-left:auto" title="Обновить содержимое этой папки">↻ Обновить</button>
     </div>
 
     <section class="card book-hero">
@@ -1027,7 +1022,7 @@
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
               <span id="bookListenText">Слушать</span>
             </button>
-            <button class="btn btn-sm hidden" type="button" id="bookStartOverBtn">↺ С начала</button>
+            <button class="btn btn-sm hidden" type="button" id="bookCancelPlayBtn" title="Отменить прослушивание и сбросить прогресс этой книги">✕ Отменить прослушивание</button>
             <button class="btn btn-sm hidden" type="button" id="bookMarkDoneBtn">✓ Отметить прослушанной</button>
             <button class="btn btn-sm" type="button" id="bookShareBtn">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 16.1a3 3 0 0 0-2 .8l-7.1-4.2a3 3 0 0 0 0-1.4L16 7.1a3 3 0 1 0-1-2.1c0 .2 0 .4.1.6L8 9.8a3 3 0 1 0 0 4.4l7.1 4.2c0 .2-.1.4-.1.6a3 3 0 1 0 3-3z"/></svg>
@@ -1232,11 +1227,14 @@
 
     <!-- HISTORY -->
     <section class="card" id="historyCard" aria-label="История">
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
         <h2 style="margin:0">История прослушивания</h2>
-        <button class="btn btn-sm btn-ghost" type="button" id="clearHistoryBtn" style="margin-left:auto">Очистить историю</button>
+        <span class="folder-count hidden" id="historyCount"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm btn-ghost hidden" type="button" id="clearCompletedHistoryBtn" title="Удалить из истории только уже прослушанные главы (отметки «Прослушано» сохранятся)">Убрать прослушанные</button>
+        <button class="btn btn-sm btn-ghost" type="button" id="clearHistoryBtn">Очистить историю</button>
       </div>
-      <p class="sub">Здесь хранятся все открытые файлы и точное место остановки.</p>
+      <p class="sub">Здесь хранятся последние открытые файлы и точное место остановки.</p>
       <div id="historyList"><p class="empty">История пуста.</p></div>
     </section>
   </section>
@@ -1568,6 +1566,7 @@
   // Book detail elements
   const bookBackBtn = $("#bookBackBtn");
   const bookBreadcrumbs = $("#bookBreadcrumbs");
+  const bookRefreshBtn = $("#bookRefreshBtn");
   const bookHeroBg = $("#bookHeroBg");
   const bookHeroCover = $("#bookHeroCover");
   const bookParentTag = $("#bookParentTag");
@@ -1575,7 +1574,7 @@
   const bookMetaPills = $("#bookMetaPills");
   const bookListenBtn = $("#bookListenBtn");
   const bookListenText = $("#bookListenText");
-  const bookStartOverBtn = $("#bookStartOverBtn");
+  const bookCancelPlayBtn = $("#bookCancelPlayBtn");
   const bookMarkDoneBtn = $("#bookMarkDoneBtn");
   const bookShareBtn = $("#bookShareBtn");
   const bookStatus = $("#bookStatus");
@@ -1617,6 +1616,8 @@
   const preampPill = $("#preampPill");
   const preampResetBtn = $("#preampResetBtn");
   const historyList = $("#historyList");
+  const historyCount = $("#historyCount");
+  const clearCompletedHistoryBtn = $("#clearCompletedHistoryBtn");
   const bmList = $("#bmList");
   const toastEl = $("#toast");
   const prevBtn = $("#prevBtn");
@@ -1705,13 +1706,14 @@
   const foldersByPath = new Map();
   let catalogRootLoaded = false;
   let catalogSearchQuery = "";
-  let catalogStatusFilter = "all"; // all | in_progress | new | done
-  let catalogCategoryFilter = "all"; // all | <rootDirPath>
+  let catalogStatusFilter = "all"; // all | in_progress | done
   let catalogViewMode = "grid"; // grid | list
   let expandedSections = new Set(); // по умолчанию подпапки свёрнуты
   let activeView = "catalog"; // catalog | book | player
   let activeBookPath = null;
   let catalogRenderTimer = null;
+  let skipNextPausedSave = false;
+  let historyShowAll = false;
 
   // ---------- storage (изоляция по пользователю + совместимость с локальным режимом) ----------
   function isCloudMode(){ return !!API_BASE; }
@@ -1740,7 +1742,8 @@
   function normalizeTrackRecord(tr, fallbackUrl){
     if (!tr || typeof tr !== "object") return null;
     const completed = typeof tr.completed === "boolean" ? tr.completed : !!tr.finished;
-    const lastPlayedAt = Number(tr.lastPlayedAt || tr.updatedAt || 0);
+    const lastPlayedAt = tr.lastPlayedAt !== undefined ? Number(tr.lastPlayedAt || 0) : Number(tr.updatedAt || 0);
+    const historyUpdatedAt = tr.historyUpdatedAt !== undefined ? Number(tr.historyUpdatedAt || 0) : lastPlayedAt;
     const completedAt = Number(tr.completedAt || (completed ? (tr.updatedAt || 0) : 0));
     return {
       url: tr.url || fallbackUrl || "",
@@ -1753,13 +1756,14 @@
       completedAt: completedAt,
       completedBy: tr.completedBy || (completed ? "auto" : null),
       lastPlayedAt: lastPlayedAt,
+      historyUpdatedAt: historyUpdatedAt,
       inHistory: tr.inHistory !== false,
       rate: typeof tr.rate === "number" ? tr.rate : null,
       folderName: tr.folderName || null,
       folderUrl: tr.folderUrl || null,
       filePath: tr.filePath || null,
       bookPath: tr.bookPath || null,
-      updatedAt: Math.max(lastPlayedAt, completedAt, Number(tr.updatedAt || 0)),
+      updatedAt: Math.max(lastPlayedAt, historyUpdatedAt, completedAt, Number(tr.updatedAt || 0)),
     };
   }
   function loadTracks(){
@@ -1783,13 +1787,25 @@
     if (!(opts && opts.skipSync)) markProgressDirty(opts && opts.immediate);
   }
   function loadSettings(){
-    return loadJSON(storageKeyFor("settings"), {volume:1, rate:1, autoResume:true, autoNext:true, viewMode:"grid", lastUrl:null, settingsUpdatedAt:0});
+    return loadJSON(storageKeyFor("settings"), {volume:1, rate:1, autoResume:true, autoNext:true, viewMode:"grid", lastUrl:null, historyClearedAt:0, settingsUpdatedAt:0});
   }
   function saveSettings(s, opts){
     const next = Object.assign({}, s, { settingsUpdatedAt: (opts && opts.keepTs) ? (s.settingsUpdatedAt || 0) : Date.now() });
     saveJSON(storageKeyFor("settings"), next);
-    if (!(opts && opts.skipSync)) markProgressDirty(false);
+    if (!(opts && opts.skipSync)) markProgressDirty(opts && opts.immediate);
     return next;
+  }
+  function getHistoryClearedAt(){
+    return Number((loadSettings().historyClearedAt) || 0);
+  }
+  function saveHistoryClearedAt(ts, opts){
+    const s = loadSettings();
+    s.historyClearedAt = Math.max(Number(s.historyClearedAt || 0), Number(ts || 0));
+    settings = saveSettings(s, opts);
+    return s.historyClearedAt;
+  }
+  function nextPlayTimestamp(){
+    return Math.max(Date.now(), getHistoryClearedAt() + 1);
   }
   function loadFolderState(){ return loadJSON(storageKeyFor("folder"), null); }
   function saveFolderState(f){ saveJSON(storageKeyFor("folder"), f); }
@@ -1880,7 +1896,9 @@
     const local = normalizeTrackRecord(localRaw, key);
     if (!remote) return local;
     if (!local) return remote;
-    const playSource = (local.lastPlayedAt || 0) >= (remote.lastPlayedAt || 0) ? local : remote;
+    const remotePlayTs = Math.max(remote.lastPlayedAt || 0, remote.historyUpdatedAt || 0);
+    const localPlayTs = Math.max(local.lastPlayedAt || 0, local.historyUpdatedAt || 0);
+    const playSource = localPlayTs >= remotePlayTs ? local : remote;
     const compSource = (local.completedAt || 0) >= (remote.completedAt || 0) ? local : remote;
     return {
       url: playSource.url || remote.url || local.url || key,
@@ -1890,6 +1908,7 @@
       duration: playSource.duration != null ? playSource.duration : (remote.duration != null ? remote.duration : local.duration),
       position: playSource.position || 0,
       lastPlayedAt: playSource.lastPlayedAt || 0,
+      historyUpdatedAt: Math.max(playSource.historyUpdatedAt || 0, playSource.lastPlayedAt || 0),
       inHistory: playSource.inHistory !== false,
       rate: playSource.rate != null ? playSource.rate : (remote.rate != null ? remote.rate : local.rate),
       folderName: playSource.folderName || remote.folderName || local.folderName || null,
@@ -1899,20 +1918,40 @@
       completed: !!compSource.completed,
       completedAt: compSource.completedAt || 0,
       completedBy: compSource.completedBy || null,
-      updatedAt: Math.max(playSource.lastPlayedAt || 0, compSource.completedAt || 0),
+      updatedAt: Math.max(playSource.lastPlayedAt || 0, playSource.historyUpdatedAt || 0, compSource.completedAt || 0),
     };
   }
 
   function applyCloudProgress(remoteProgress){
     if (!remoteProgress || typeof remoteProgress !== "object" || !currentUser) return;
+    const historyClearedAt = Math.max(
+      getHistoryClearedAt(),
+      Number(remoteProgress.historyClearedAt || 0),
+      Number((remoteProgress.settings && remoteProgress.settings.historyClearedAt) || 0)
+    );
+    if (historyClearedAt > getHistoryClearedAt()){
+      saveHistoryClearedAt(historyClearedAt, { skipSync: true, keepTs: true });
+    }
     const localTracks = loadTracks();
     const remoteTracks = remoteProgress.tracks || {};
     const mergedTracks = {};
     const allKeys = new Set([...Object.keys(localTracks), ...Object.keys(remoteTracks)]);
     allKeys.forEach(k => {
       if (!k || k.startsWith("blob:")) return;
-      const m = mergeTrackState(remoteTracks[k], localTracks[k], k);
-      if (m) mergedTracks[k] = m;
+      let m = mergeTrackState(remoteTracks[k], localTracks[k], k);
+      if (!m) return;
+      const playTs = Math.max(m.lastPlayedAt || 0, m.historyUpdatedAt || 0);
+      if (historyClearedAt > 0 && playTs <= historyClearedAt){
+        m = Object.assign({}, m, {
+          position: 0,
+          lastPlayedAt: 0,
+          historyUpdatedAt: historyClearedAt,
+          inHistory: false,
+          updatedAt: Math.max(m.completedAt || 0, historyClearedAt),
+        });
+        if (!m.completed) return;
+      }
+      mergedTracks[k] = m;
     });
     saveTracks(mergedTracks, { skipSync: true });
 
@@ -1922,13 +1961,18 @@
     const remoteBmMeta = remoteProgress.bookmarksMeta || {};
     const mergedBm = Object.assign({}, localBm);
     const mergedBmMeta = Object.assign({}, localBmMeta);
-    new Set([...Object.keys(remoteBm), ...Object.keys(remoteBmMeta)]).forEach(k => {
+    new Set([...Object.keys(remoteBm), ...Object.keys(remoteBmMeta), ...Object.keys(mergedBm), ...Object.keys(mergedBmMeta)]).forEach(k => {
       const rAt = Number(remoteBmMeta[k] || 0);
-      const lAt = Number(localBmMeta[k] || 0);
-      if (rAt >= lAt){
+      const lAt = Number(mergedBmMeta[k] || 0);
+      if (rAt >= lAt && (k in remoteBm || k in remoteBmMeta)){
         if (Array.isArray(remoteBm[k]) && remoteBm[k].length) mergedBm[k] = remoteBm[k];
         else delete mergedBm[k];
         mergedBmMeta[k] = rAt;
+      }
+      const finalAt = Number(mergedBmMeta[k] || 0);
+      if (historyClearedAt > 0 && finalAt <= historyClearedAt){
+        delete mergedBm[k];
+        mergedBmMeta[k] = historyClearedAt;
       }
     });
     saveBookmarks(mergedBm, { meta: mergedBmMeta, skipSync: true });
@@ -1937,7 +1981,9 @@
     const rSetAt = Number(remoteProgress.settingsUpdatedAt || 0);
     const lSetAt = Number(localSettings.settingsUpdatedAt || 0);
     if (rSetAt > lSetAt && remoteProgress.settings && typeof remoteProgress.settings === "object"){
-      saveSettings(Object.assign({}, localSettings, remoteProgress.settings, { settingsUpdatedAt: rSetAt }), { skipSync: true, keepTs: true });
+      const nextSettings = Object.assign({}, localSettings, remoteProgress.settings, { settingsUpdatedAt: rSetAt });
+      if (historyClearedAt > 0) nextSettings.historyClearedAt = historyClearedAt;
+      saveSettings(nextSettings, { skipSync: true, keepTs: true });
       applySettingsToUI();
     }
     lastCloudSyncAt = Date.now();
@@ -1947,6 +1993,7 @@
   function buildProgressPayload(){
     const s = loadSettings();
     return {
+      historyClearedAt: Number(s.historyClearedAt || 0),
       tracks: loadTracks(),
       bookmarks: loadBookmarks(),
       bookmarksMeta: loadBookmarksMeta(),
@@ -2380,11 +2427,13 @@
   function savePosition(){
     if (!currentUrl) return;
     if (isLoading) return;
+    if (skipNextPausedSave && audio.paused) return;
+    if (!audio.paused) skipNextPausedSave = false;
     const t = audio.currentTime || 0;
     const prev = getTrack(currentUrl);
     const d = isFinite(audio.duration) ? audio.duration : (prev?.duration || null);
     const nearEnd = isNearTrackEnd(t, d);
-    const now = Date.now();
+    const now = nextPlayTimestamp();
     const patch = {
       title: currentTitle,
       size: currentSize,
@@ -2392,6 +2441,7 @@
       duration: d,
       position: nearEnd ? 0 : t,
       lastPlayedAt: now,
+      historyUpdatedAt: now,
       inHistory: true,
       rate: audio.playbackRate,
       folderUrl: ROOT_URL,
@@ -2467,6 +2517,7 @@
         duration: (prev && prev.duration) || null,
         position: (prev && prev.position) || 0,
         lastPlayedAt: (prev && prev.lastPlayedAt) || 0,
+        historyUpdatedAt: (prev && (prev.historyUpdatedAt || prev.lastPlayedAt)) || 0,
         inHistory: prev ? prev.inHistory : false,
         completed: !!completed,
         completedAt: now,
@@ -2488,6 +2539,108 @@
     }
     if (activeView === "catalog") renderCatalog();
     toast(completed ? "Вся книга отмечена прослушанной ✓" : "Отметка прослушивания снята со всей книги");
+  }
+
+  function cancelBookListening(folder, opts){
+    if (!folder) return false;
+    opts = opts || {};
+    if (!opts.skipConfirm && !confirm("Отменить прослушивание книги «" + (folder.name || "Книга") + "» и сбросить её прогресс?")) return false;
+    const all = loadTracks();
+    const now = nextPlayTimestamp();
+    const bookRoot = normalizeDiskPath(folder.path || "/");
+    const bookPrefix = bookRoot === "/" ? "/" : (bookRoot + "/");
+    const affectedKeys = new Set();
+
+    const entries = collectFolderAudioEntries(folder);
+    entries.forEach(({ item, bookPath, folderName }) => {
+      const fp = normalizeDiskPath(item.path || ((bookPath === "/" ? "" : bookPath) + "/" + item.name));
+      const key = folderFileKey(ROOT_URL, fp);
+      affectedKeys.add(key);
+      const prev = all[key];
+      if (!prev) return;
+      all[key] = Object.assign({}, prev, {
+        url: key,
+        title: prev.title || item.name,
+        size: item.size != null ? item.size : (prev.size || null),
+        mime: item.mime_type || (prev.mime || null),
+        duration: prev.duration || null,
+        position: 0,
+        lastPlayedAt: 0,
+        historyUpdatedAt: now,
+        inHistory: false,
+        completed: false,
+        completedAt: now,
+        completedBy: "manual",
+        folderUrl: ROOT_URL,
+        folderName: folderName,
+        filePath: fp,
+        bookPath: bookPath,
+        updatedAt: now,
+      });
+    });
+
+    Object.keys(all).forEach(k => {
+      const tr = all[k];
+      if (!tr || affectedKeys.has(k)) return;
+      const bp = tr.bookPath ? normalizeDiskPath(tr.bookPath) : "";
+      if (bp && (bp === bookRoot || (bookRoot !== "/" && bp.startsWith(bookPrefix)))){
+        affectedKeys.add(k);
+        all[k] = Object.assign({}, tr, {
+          position: 0,
+          lastPlayedAt: 0,
+          historyUpdatedAt: now,
+          inHistory: false,
+          completed: false,
+          completedAt: now,
+          completedBy: "manual",
+          updatedAt: now,
+        });
+      }
+    });
+
+    const curBp = currentBookPath ? normalizeDiskPath(currentBookPath) : "";
+    const isPlayingThisBook = (currentUrl && affectedKeys.has(currentUrl)) ||
+      (curBp && (curBp === bookRoot || (bookRoot !== "/" && curBp.startsWith(bookPrefix))));
+    if (isPlayingThisBook){
+      skipNextPausedSave = true;
+      try{ audio.pause(); }catch(e){}
+      if (typeof cancelResume === "function") cancelResume();
+      currentUrl = null;
+      currentHref = null;
+      currentTitle = "Аудиофайл";
+      currentSize = null;
+      currentMime = null;
+      currentBookPath = null;
+      currentCoverUrl = null;
+      currentFolder = null;
+      currentFolderName = null;
+      try{ audio.removeAttribute("src"); audio.load(); }catch(e){}
+      saveFolderState(null);
+      if (settings.lastUrl && affectedKeys.has(settings.lastUrl)){
+        settings.lastUrl = null;
+        settings = saveSettings(settings, { skipSync: true });
+      }
+      playerCard.classList.add("hidden");
+      updatePlayerDoneButton();
+      updateHeaderNowPlaying();
+      updateMini();
+    } else if (settings.lastUrl && affectedKeys.has(settings.lastUrl)){
+      settings.lastUrl = null;
+      settings = saveSettings(settings, { skipSync: true });
+    }
+
+    saveTracks(all, { immediate: true });
+    if (isCloudAuthenticated()) syncProgressNow({ force: true });
+    renderHistory();
+    renderContinueShelf();
+    renderPlaylist();
+    if (activeView === "book" && activeBookPath){
+      const rec = foldersByPath.get(activeBookPath);
+      if (rec) renderBookDetailContent(rec);
+    }
+    if (activeView === "catalog") renderCatalog();
+    toast("Прослушивание книги отменено");
+    return true;
   }
 
   // Сводный прогресс по папке-книге (с учётом вложенных подпапок и ручных отметок)
@@ -2996,13 +3149,6 @@
     return true;
   }
 
-  // Актуализирует активное состояние кнопок фильтра разделов
-  function updateCategoryFilterUI(){
-    $$("[data-category-filter]", catalogFilters).forEach(btn => {
-      btn.classList.toggle("active", btn.getAttribute("data-category-filter") === catalogCategoryFilter);
-    });
-  }
-
   function buildBookCard(rec){
     const card = document.createElement("article");
     card.className = "book-card";
@@ -3149,7 +3295,6 @@
     const rootRec = foldersByPath.get("/");
     if (!rootRec || !rootRec.loaded){
       catalogContent.innerHTML = "";
-      updateCategoryFilterUI();
       return;
     }
 
@@ -3160,15 +3305,12 @@
     const sectionDirs = rootDirs.filter(r => r.loaded && r.dirs.length > 0 && r.audios.length === 0);
     const directBookDirs = rootDirs.filter(r => !(r.loaded && r.dirs.length > 0 && r.audios.length === 0));
 
-    // Актуализируем активное состояние кнопок фильтра разделов
-    updateCategoryFilterUI();
-
     catalogContent.innerHTML = "";
     let totalVisibleCards = 0;
     const gridClass = "book-grid" + (catalogViewMode === "list" ? " list-mode" : "");
 
     // Если в корневом каталоге лежат аудиофайлы напрямую
-    if (rootRec.audios.length > 0 && (catalogCategoryFilter === "all" || catalogCategoryFilter === "__root_books__")){
+    if (rootRec.audios.length > 0){
       if (matchesCatalogFilter(rootRec)){
         const sec = document.createElement("div");
         sec.className = "catalog-section";
@@ -3182,7 +3324,7 @@
     }
 
     // 1. Папки верхнего уровня (книги в корне)
-    if (directBookDirs.length > 0 && (catalogCategoryFilter === "all" || catalogCategoryFilter === "__root_books__")){
+    if (directBookDirs.length > 0){
       const filtered = directBookDirs.filter(matchesCatalogFilter);
       if (filtered.length > 0){
         const sec = document.createElement("div");
@@ -3207,7 +3349,6 @@
     // 2. Разделы (папки с подпапками) — по умолчанию свёрнуты
     const autoExpand = !!catalogSearchQuery || catalogStatusFilter !== "all";
     sectionDirs.forEach(secRec => {
-      if (catalogCategoryFilter !== "all" && catalogCategoryFilter !== secRec.path) return;
       const subRecs = secRec.dirs.map(d => foldersByPath.get(d.path) || createEmptyFolderRecord(d.path, d.name));
       const secTitleMatch = catalogSearchQuery && (secRec.name || "").toLowerCase().includes(catalogSearchQuery.toLowerCase());
       const filteredSubs = secTitleMatch ? subRecs.filter(r => {
@@ -3231,6 +3372,16 @@
 
       const acts = document.createElement("div");
       acts.className = "section-actions";
+      const refreshSecBtn = document.createElement("button");
+      refreshSecBtn.type = "button";
+      refreshSecBtn.className = "btn btn-sm btn-ghost";
+      refreshSecBtn.textContent = "↻ Обновить";
+      refreshSecBtn.title = "Обновить содержимое папки «" + secRec.name + "»";
+      refreshSecBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        refreshFolderContents(secRec.path);
+      });
+      acts.appendChild(refreshSecBtn);
       if (secRec.coverItem || secRec.descItem){
         const openSecBtn = document.createElement("button");
         openSecBtn.type = "button";
@@ -3279,7 +3430,7 @@
       const empty = document.createElement("section");
       empty.className = "card";
       empty.innerHTML = '<p class="empty" style="margin:0; text-align:center; padding:18px 8px">' +
-        (catalogSearchQuery || catalogStatusFilter !== "all" || catalogCategoryFilter !== "all"
+        (catalogSearchQuery || catalogStatusFilter !== "all"
           ? 'По выбранным фильтрам ничего не найдено. <button type="button" class="btn btn-sm" id="resetFiltersBtn" style="margin-left:8px">Сбросить фильтры</button>'
           : 'В папке каталога пока нет папок с аудиокнигами.') +
         '</p>';
@@ -3291,13 +3442,84 @@
           catalogSearch.value = "";
           catalogSearchClear.classList.add("hidden");
           catalogStatusFilter = "all";
-          catalogCategoryFilter = "all";
           $$("[data-status-filter]", catalogFilters).forEach(b => b.classList.toggle("active", b.getAttribute("data-status-filter") === "all"));
           renderCatalog();
         });
       }
     }
 
+  }
+
+  async function refreshFolderContents(folderPath){
+    const norm = normalizeDiskPath(folderPath || "/");
+    let rec = foldersByPath.get(norm);
+    if (!rec){
+      rec = createEmptyFolderRecord(norm);
+      foldersByPath.set(norm, rec);
+    }
+    const prefix = norm === "/" ? "/" : (norm + "/");
+    Array.from(hrefCache.keys()).forEach(k => {
+      const p = parseFolderFileKey(k);
+      if (p && p.filePath && (p.filePath === norm || p.filePath.startsWith(prefix))){
+        hrefCache.delete(k);
+      }
+    });
+    rec.coverUrl = null;
+    rec.descLoaded = false;
+    rec.descText = "";
+    if (activeView === "book" && activeBookPath === norm){
+      setStatusBox(bookStatus, '<span class="spinner" aria-hidden="true"></span><span>Обновляем содержимое папки…</span>');
+    } else {
+      toast("Обновляем содержимое папки «" + (rec.name || folderNameFromPath(norm)) + "»…");
+    }
+    try{
+      rec = await fetchFolderDetails(norm, true);
+      const assetTasks = [];
+      if (rec.coverItem) assetTasks.push(ensureFolderCoverUrl(rec, true));
+      if (rec.descItem) assetTasks.push(ensureFolderDescription(rec));
+      await Promise.all(assetTasks);
+
+      if (rec.dirs && rec.dirs.length){
+        const queue = rec.dirs.slice();
+        const workers = [];
+        const concurrency = Math.min(3, queue.length);
+        for (let i = 0; i < concurrency; i++){
+          workers.push((async () => {
+            while (queue.length){
+              const d = queue.shift();
+              try{
+                const sub = await fetchFolderDetails(d.path, true);
+                if (sub.coverItem) await ensureFolderCoverUrl(sub, true);
+                if (sub.descItem){ sub.descLoaded = false; await ensureFolderDescription(sub); }
+              }catch(e){}
+            }
+          })());
+        }
+        await Promise.all(workers);
+      }
+
+      if (currentFolder && currentFolder.currentPath === norm){
+        currentFolder.folderName = rec.name || currentFolder.folderName;
+        currentFolder.items = rec.audios.map(a => Object.assign({}, a, { type: "file" }));
+        persistFolder();
+        renderPlaylist();
+      }
+      if (activeView === "book" && activeBookPath === norm){
+        setStatusBox(bookStatus, "");
+        renderBookDetailContent(rec);
+      } else if (activeView === "catalog"){
+        renderCatalog();
+      }
+      toast("Содержимое папки обновлено");
+      return rec;
+    }catch(err){
+      if (activeView === "book" && activeBookPath === norm){
+        setStatusBox(bookStatus, '<span>⚠</span><span>' + escapeHtml(yandexErrorText(err)) + '</span>', "error");
+      } else {
+        toast(yandexErrorText(err), true);
+      }
+      return null;
+    }
   }
 
   // ---------- СТРАНИЦА КНИГИ ----------
@@ -3477,10 +3699,10 @@
       if (prog.status === "in_progress" && prog.resumeItem){
         const pos = (prog.resumeTrack && prog.resumeTrack.position > 5) ? (" (" + formatTime(prog.resumeTrack.position) + ")") : "";
         bookListenText.textContent = "Продолжить прослушивание" + pos;
-        bookStartOverBtn.classList.remove("hidden");
+        bookCancelPlayBtn.classList.remove("hidden");
       } else {
         bookListenText.textContent = "Слушать";
-        bookStartOverBtn.classList.add("hidden");
+        bookCancelPlayBtn.classList.add("hidden");
       }
       bookMarkDoneBtn.classList.remove("hidden");
       const isDone = prog.status === "done";
@@ -3490,11 +3712,11 @@
       bookListenBtn.classList.remove("hidden");
       bookListenBtn.disabled = true;
       bookListenText.textContent = "Загрузка…";
-      bookStartOverBtn.classList.add("hidden");
+      bookCancelPlayBtn.classList.add("hidden");
       bookMarkDoneBtn.classList.add("hidden");
     } else {
       bookListenBtn.classList.add("hidden");
-      bookStartOverBtn.classList.add("hidden");
+      bookCancelPlayBtn.classList.add("hidden");
       bookMarkDoneBtn.classList.add("hidden");
     }
 
@@ -3871,6 +4093,8 @@
 
       resumeTarget = savedPos > 5 ? savedPos : null;
       resumeApplied = false;
+      skipNextPausedSave = false;
+      const playTs = nextPlayTimestamp();
 
       upsertTrack(norm, {
         title: title,
@@ -3881,7 +4105,8 @@
         completed: !!prev?.completed,
         completedAt: prev?.completedAt || 0,
         completedBy: prev?.completedBy || null,
-        lastPlayedAt: Date.now(),
+        lastPlayedAt: playTs,
+        historyUpdatedAt: playTs,
         inHistory: true,
         folderName: folderNameForTrack,
         folderUrl: folderUrlForTrack,
@@ -4221,6 +4446,7 @@
   });
   audio.addEventListener("progress", updateBuffered);
   audio.addEventListener("play", () => {
+    skipNextPausedSave = false;
     playIcon.classList.add("hidden"); pauseIcon.classList.remove("hidden");
     document.title = "▶ " + currentTitle;
     if (isLoading && resumeTarget != null) applyResume();
@@ -4268,13 +4494,14 @@
   });
   audio.addEventListener("ended", () => {
     if (currentUrl){
-      const now = Date.now();
+      const now = nextPlayTimestamp();
       upsertTrack(currentUrl, {
         position: 0,
         completed: true,
         completedAt: now,
         completedBy: "auto",
         lastPlayedAt: now,
+        historyUpdatedAt: now,
         inHistory: true,
       }, { immediate: true });
       updatePlayerDoneButton();
@@ -4401,13 +4628,14 @@ function resumePendingAdvance(){
     if (d - ct > TAIL_SEC) return false;
     if (!canAutoAdvance()) return false;
     if (currentUrl){
-      const now = Date.now();
+      const now = nextPlayTimestamp();
       upsertTrack(currentUrl, {
         position: 0,
         completed: true,
         completedAt: now,
         completedBy: "auto",
         lastPlayedAt: now,
+        historyUpdatedAt: now,
         inHistory: true,
       }, { immediate: true });
       updatePlayerDoneButton();
@@ -4524,13 +4752,14 @@ function resumePendingAdvance(){
     const ct = audio.currentTime || 0;
     if (isFinite(dur) && dur > 0 && (dur - ct) < 20){
       if (currentUrl){
-        const now = Date.now();
+        const now = nextPlayTimestamp();
         upsertTrack(currentUrl, {
           position: 0,
           completed: true,
           completedAt: now,
           completedBy: "auto",
           lastPlayedAt: now,
+          historyUpdatedAt: now,
           inHistory: true,
         }, { immediate: true });
         updatePlayerDoneButton();
@@ -4545,6 +4774,7 @@ function resumePendingAdvance(){
     setStatus('<span>⚠</span><span>Не удалось воспроизвести файл: проверьте интернет-соединение и попробуйте снова.</span>', "error");
   });
   audio.addEventListener("seeked", () => {
+    skipNextPausedSave = false;
     updateTimeUI();
     if (isLoading && resumeTarget != null && Math.abs((audio.currentTime || 0) - resumeTarget) < 3){
       resumeApplied = true;
@@ -4736,8 +4966,12 @@ function resumePendingAdvance(){
 
   $("#restartBtn").addEventListener("click", () => {
     cancelResume();
+    skipNextPausedSave = false;
     try{ audio.currentTime = 0; }catch(e){}
-    if (currentUrl) upsertTrack(currentUrl, { position: 0, lastPlayedAt: Date.now(), inHistory: true }, { immediate: true });
+    if (currentUrl){
+      const ts = nextPlayTimestamp();
+      upsertTrack(currentUrl, { position: 0, lastPlayedAt: ts, historyUpdatedAt: ts, inHistory: true }, { immediate: true });
+    }
     renderHistory();
     renderPlaylist();
   });
@@ -4750,8 +4984,12 @@ function resumePendingAdvance(){
   });
   $("#resumeNoBtn").addEventListener("click", () => {
     cancelResume();
+    skipNextPausedSave = false;
     try{ audio.currentTime = 0; }catch(e){}
-    if (currentUrl) upsertTrack(currentUrl, { position: 0, lastPlayedAt: Date.now(), inHistory: true }, { immediate: true });
+    if (currentUrl){
+      const ts = nextPlayTimestamp();
+      upsertTrack(currentUrl, { position: 0, lastPlayedAt: ts, historyUpdatedAt: ts, inHistory: true }, { immediate: true });
+    }
     resumeBanner.classList.remove("show");
     renderHistory();
     renderPlaylist();
@@ -4863,17 +5101,98 @@ function resumePendingAdvance(){
   }
 
   // ---------- история ----------
+  function deleteHistoryItem(url){
+    if (!url) return;
+    const cur = loadTracks();
+    const existing = cur[url];
+    const now = nextPlayTimestamp();
+    if (existing){
+      cur[url] = Object.assign({}, existing, {
+        position: 0,
+        inHistory: false,
+        lastPlayedAt: 0,
+        historyUpdatedAt: now,
+        updatedAt: Math.max(now, existing.completedAt || 0),
+      });
+    }
+    if (url === currentUrl && audio.paused){
+      skipNextPausedSave = true;
+    }
+    if (settings.lastUrl === url){
+      settings.lastUrl = null;
+      settings = saveSettings(settings, { skipSync: true });
+    }
+    saveTracks(cur, { immediate: true });
+    setBookmarks(url, []);
+    if (isCloudAuthenticated()) syncProgressNow({ force: true });
+    renderHistory();
+    renderContinueShelf();
+    renderPlaylist();
+    if (activeView === "book" && activeBookPath){
+      const rec = foldersByPath.get(activeBookPath);
+      if (rec) renderBookDetailContent(rec);
+    }
+    toast(existing && existing.completed ? "Удалено из истории (отметка «Прослушано» сохранена)" : "Удалено из истории");
+  }
+
+  function clearCompletedHistory(){
+    const cur = loadTracks();
+    const now = nextPlayTimestamp();
+    let cleared = 0;
+    Object.keys(cur).forEach(k => {
+      const tr = cur[k];
+      if (tr && tr.completed && tr.inHistory !== false){
+        cleared++;
+        cur[k] = Object.assign({}, tr, {
+          position: 0,
+          inHistory: false,
+          lastPlayedAt: 0,
+          historyUpdatedAt: now,
+          updatedAt: Math.max(now, tr.completedAt || 0),
+        });
+        if (k === currentUrl && audio.paused) skipNextPausedSave = true;
+      }
+    });
+    if (!cleared){ toast("В истории нет прослушанных глав"); return; }
+    saveTracks(cur, { immediate: true });
+    if (isCloudAuthenticated()) syncProgressNow({ force: true });
+    renderHistory();
+    renderContinueShelf();
+    renderPlaylist();
+    if (activeView === "book" && activeBookPath){
+      const rec = foldersByPath.get(activeBookPath);
+      if (rec) renderBookDetailContent(rec);
+    }
+    toast("Убрано из истории: " + cleared + " (отметки «Прослушано» сохранены)");
+  }
+
   function renderHistory(){
     const all = loadTracks();
     const items = Object.values(all)
-      .filter(it => it && it.url && !it.url.startsWith("blob:") && (it.inHistory || it.position > 0 || it.lastPlayedAt > 0))
+      .filter(it => it && it.url && !it.url.startsWith("blob:") && it.inHistory !== false && (it.lastPlayedAt > 0 || it.position > 0))
       .sort((a,b) => (b.lastPlayedAt || b.updatedAt || 0) - (a.lastPlayedAt || a.updatedAt || 0));
+
+    const completedInHistoryCount = items.filter(it => it.completed).length;
+    if (historyCount){
+      historyCount.textContent = items.length ? (items.length + " " + plural(items.length, "запись", "записи", "записей")) : "";
+      historyCount.classList.toggle("hidden", !items.length);
+    }
+    if (clearCompletedHistoryBtn){
+      clearCompletedHistoryBtn.classList.toggle("hidden", completedInHistoryCount === 0);
+      if (completedInHistoryCount > 0){
+        clearCompletedHistoryBtn.textContent = "Убрать прослушанные (" + completedInHistoryCount + ")";
+      }
+    }
+
     if (!items.length){
+      historyShowAll = false;
       historyList.innerHTML = '<p class="empty">История прослушивания пуста.</p>';
       return;
     }
     historyList.innerHTML = "";
-    items.forEach(item => {
+    const HISTORY_LIMIT = 15;
+    const visibleItems = historyShowAll ? items : items.slice(0, HISTORY_LIMIT);
+    visibleItems.forEach(item => {
       const isDone = !!item.completed;
       const div = document.createElement("div");
       div.className = "history-item" + (item.url === currentUrl ? " current" : "");
@@ -4925,7 +5244,8 @@ function resumePendingAdvance(){
       restart.className = "icon-btn"; restart.type = "button"; restart.title = "Сбросить позицию";
       restart.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>';
       restart.addEventListener("click", () => {
-        upsertTrack(item.url, { position: 0 }, { immediate: true });
+        const ts = nextPlayTimestamp();
+        upsertTrack(item.url, { position: 0, lastPlayedAt: ts, historyUpdatedAt: ts }, { immediate: true });
         if (item.url === currentUrl){ try{ audio.currentTime = 0; }catch(e){} }
         renderHistory();
         renderPlaylist();
@@ -4935,29 +5255,38 @@ function resumePendingAdvance(){
       const del = document.createElement("button");
       del.className = "icon-btn danger"; del.type = "button"; del.title = "Удалить из истории";
       del.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-1V2h-4v2H10V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/></svg>';
-      del.addEventListener("click", () => {
-        const cur = loadTracks();
-        const existing = cur[item.url];
-        if (existing && existing.completed){
-          cur[item.url] = Object.assign({}, existing, { position: 0, inHistory: false, lastPlayedAt: 0, updatedAt: Date.now() });
-        } else {
-          delete cur[item.url];
-        }
-        saveTracks(cur, { immediate: true });
-        setBookmarks(item.url, []);
-        renderHistory();
-        renderContinueShelf();
-        toast(existing && existing.completed ? "Удалено из истории (отметка «Прослушано» сохранена)" : "Удалено из истории");
-      });
+      del.addEventListener("click", () => deleteHistoryItem(item.url));
 
       actions.appendChild(play); actions.appendChild(restart); actions.appendChild(del);
       div.appendChild(info); div.appendChild(actions);
       historyList.appendChild(div);
     });
+
+    if (items.length > HISTORY_LIMIT){
+      const moreBtn = document.createElement("button");
+      moreBtn.type = "button";
+      moreBtn.className = "btn btn-sm btn-ghost";
+      moreBtn.style.marginTop = "10px";
+      moreBtn.textContent = historyShowAll ? "Свернуть список" : ("Показать все (" + items.length + ")");
+      moreBtn.addEventListener("click", () => {
+        historyShowAll = !historyShowAll;
+        renderHistory();
+      });
+      historyList.appendChild(moreBtn);
+    }
   }
-  function clearAllHistory(){
-    if (!confirm("Очистить историю воспроизведения и сохранённые позиции? Отметки «Прослушано» сохранятся.")) return;
-    const now = Date.now();
+  function clearAllHistory(opts){
+    opts = opts || {};
+    if (!opts.skipConfirm && !confirm("Очистить историю воспроизведения и сохранённые позиции? Отметки «Прослушано» сохранятся.")) return;
+    const clearTs = nextPlayTimestamp();
+    saveHistoryClearedAt(clearTs, { skipSync: true });
+    skipNextPausedSave = true;
+    historyShowAll = false;
+    if (settings.lastUrl){
+      settings.lastUrl = null;
+      settings = saveSettings(settings, { skipSync: true });
+    }
+    if (typeof cancelResume === "function") cancelResume();
     const cur = loadTracks();
     const nextTracks = {};
     Object.keys(cur).forEach(k => {
@@ -4967,15 +5296,18 @@ function resumePendingAdvance(){
           position: 0,
           inHistory: false,
           lastPlayedAt: 0,
-          updatedAt: now,
+          historyUpdatedAt: clearTs,
+          updatedAt: Math.max(clearTs, tr.completedAt || 0),
         });
       }
     });
     const bm = loadBookmarks();
     const bmMeta = loadBookmarksMeta();
-    Object.keys(bm).forEach(k => { bmMeta[k] = now; });
+    Object.keys(bm).forEach(k => { bmMeta[k] = clearTs; });
+    Object.keys(bmMeta).forEach(k => { bmMeta[k] = Math.max(Number(bmMeta[k] || 0), clearTs); });
     saveTracks(nextTracks, { immediate: true });
     saveBookmarks({}, { meta: bmMeta, immediate: true });
+    if (isCloudAuthenticated()) syncProgressNow({ force: true });
     renderHistory();
     renderContinueShelf();
     renderPlaylist();
@@ -4983,10 +5315,12 @@ function resumePendingAdvance(){
       const rec = foldersByPath.get(activeBookPath);
       if (rec) renderBookDetailContent(rec);
     }
+    if (activeView === "catalog") renderCatalog();
     toast("История очищена (отметки «Прослушано» сохранены)");
   }
-  $("#clearHistoryBtn").addEventListener("click", clearAllHistory);
-  continueShelfClearBtn.addEventListener("click", clearAllHistory);
+  $("#clearHistoryBtn").addEventListener("click", () => clearAllHistory());
+  if (clearCompletedHistoryBtn) clearCompletedHistoryBtn.addEventListener("click", clearCompletedHistory);
+  continueShelfClearBtn.addEventListener("click", () => clearAllHistory());
 
   // ---------- обработчики UI навигации и каталога ----------
   brandHome.addEventListener("click", () => navigateTo(isCloudMode() && !isCloudAuthenticated() ? "auth" : "catalog"));
@@ -5001,6 +5335,9 @@ function resumePendingAdvance(){
   headerUserBtn.addEventListener("click", openUserModal);
 
   bookBackBtn.addEventListener("click", () => navigateTo("catalog"));
+  bookRefreshBtn.addEventListener("click", () => {
+    if (activeBookPath) refreshFolderContents(activeBookPath);
+  });
   bookListenBtn.addEventListener("click", () => {
     if (!activeBookPath) return;
     const rec = foldersByPath.get(activeBookPath);
@@ -5012,16 +5349,11 @@ function resumePendingAdvance(){
       startBookPlayback(activeBookPath, rec.audios[0], true);
     }
   });
-  bookStartOverBtn.addEventListener("click", () => {
+  bookCancelPlayBtn.addEventListener("click", () => {
     if (!activeBookPath) return;
     const rec = foldersByPath.get(activeBookPath);
     if (!rec) return;
-    const firstEntry = collectFolderAudioEntries(rec)[0];
-    if (!firstEntry) return;
-    const fp = normalizeDiskPath(firstEntry.item.path || ((firstEntry.bookPath === "/" ? "" : firstEntry.bookPath) + "/" + firstEntry.item.name));
-    const key = folderFileKey(ROOT_URL, fp);
-    upsertTrack(key, { position: 0, lastPlayedAt: Date.now(), inHistory: true }, { immediate: true });
-    startBookPlayback(firstEntry.bookPath, firstEntry.item, true);
+    cancelBookListening(rec);
   });
   bookMarkDoneBtn.addEventListener("click", () => {
     if (!activeBookPath) return;
@@ -5081,13 +5413,6 @@ function resumePendingAdvance(){
       renderCatalog();
     });
   });
-  $$("[data-category-filter]", catalogFilters).forEach(btn => {
-    btn.addEventListener("click", () => {
-      catalogCategoryFilter = btn.getAttribute("data-category-filter") || "all";
-      updateCategoryFilterUI();
-      renderCatalog();
-    });
-  });
   catalogRefreshBtn.addEventListener("click", () => {
     toast("Обновляем каталог…");
     loadCatalog(true);
@@ -5097,12 +5422,21 @@ function resumePendingAdvance(){
     if (!currentFolder) return;
     setStatusBox(folderStatus, '<span class="spinner" aria-hidden="true"></span><span>Обновляем список файлов…</span>');
     try{
-      const rec = await fetchFolderDetails(currentFolder.currentPath, true);
+      const norm = normalizeDiskPath(currentFolder.currentPath || "/");
+      const prefix = norm === "/" ? "/" : (norm + "/");
+      Array.from(hrefCache.keys()).forEach(k => {
+        const p = parseFolderFileKey(k);
+        if (p && p.filePath && (p.filePath === norm || p.filePath.startsWith(prefix))){
+          hrefCache.delete(k);
+        }
+      });
+      const rec = await fetchFolderDetails(norm, true);
       currentFolder.folderName = rec.name || currentFolder.folderName;
       currentFolder.items = rec.audios.map(a => Object.assign({}, a, { type: "file" }));
       persistFolder();
       setStatusBox(folderStatus, "");
       renderPlaylist();
+      if (activeView === "book" && activeBookPath === norm) renderBookDetailContent(rec);
       toast("Список обновлён");
     }catch(e){
       setStatusBox(folderStatus, '<span>⚠</span><span>' + escapeHtml(yandexErrorText(e)) + '</span>', "error");
@@ -5140,6 +5474,8 @@ function resumePendingAdvance(){
     currentFolder = null;
     currentBookPath = null;
     currentCoverUrl = null;
+    skipNextPausedSave = false;
+    historyShowAll = false;
     progressDirty = false;
     clearTimeout(syncTimerId);
     syncTimerId = null;
