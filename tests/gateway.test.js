@@ -189,7 +189,7 @@ async function invoke(handler, action, method = "GET", { body, query, token } = 
     httpMethod: method,
     headers: {
       origin: "https://seva41seva.github.io",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(token ? { "x-session-token": token } : {}),
     },
     queryStringParameters: { action, ...(query || {}) },
     body: body ? JSON.stringify(body) : "",
@@ -217,18 +217,34 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
   const gw = require(modPath);
 
   try {
-    // 1. Bootstrap check
+    // 1. Bootstrap check & CORS preflight for X-Session-Token
+    const preflight = await gw.handler({
+      httpMethod: "OPTIONS",
+      headers: { origin: "https://seva41seva.github.io" },
+    });
+    assert.equal(preflight.statusCode, 204);
+    assert.match(preflight.headers["Access-Control-Allow-Headers"], /X-Session-Token/i);
+
     const boot = await invoke(gw.handler, "public/bootstrap");
     assert.equal(boot.statusCode, 200);
     assert.equal(boot.data.yandexClientId, "cid_123");
     assert.equal(boot.data.diskConfigured, false);
 
-    // 2. Non-admin Yandex login rejected
+    // 2. Non-admin Yandex login rejected with ID hint
     platform.setYandexUser({ id: "999", login: "stranger", display_name: "Чужой" });
     const badAdmin = await invoke(gw.handler, "auth/admin-yandex", "POST", {
       body: { code: "oauth_code_1", redirectUri: "https://seva41seva.github.io/audiobook-catalog/" },
     });
     assert.equal(badAdmin.statusCode, 403);
+    assert.match(badAdmin.data.error, /ID: 999/);
+
+    // isAllowedAdminYandexUser tolerates @yandex.ru, quotes, @prefix, and default_email
+    const prevAdminEnv = process.env.ADMIN_YANDEX_ID;
+    process.env.ADMIN_YANDEX_ID = '"seva41seva@yandex.ru", @other_admin';
+    assert.equal(gw._internal.isAllowedAdminYandexUser({ id: "123", login: "seva41seva" }), true);
+    assert.equal(gw._internal.isAllowedAdminYandexUser({ id: "123", login: "other_admin" }), true);
+    assert.equal(gw._internal.isAllowedAdminYandexUser({ id: "123", login: "stranger" }), false);
+    process.env.ADMIN_YANDEX_ID = prevAdminEnv;
 
     // 3. Valid admin login initializes app:/ and returns setupPending refresh token
     platform.setYandexUser({ id: "100500", login: "admin_user", display_name: "Главный Админ" });
@@ -289,8 +305,11 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
     });
     assert.equal(reloginMama.statusCode, 200);
 
-    // 6. Progress sync: decoupling completed from clearHistory / position
+    // 6. Progress sync: decoupling completed from clearHistory / position, single-item delete & historyClearedAt
     const trackKey = "https://disk.yandex.com/d/Qb_HBohs2k5iEg|||/Книга 1/01.mp3";
+    const trackKey2 = "https://disk.yandex.com/d/Qb_HBohs2k5iEg|||/Книга 1/02.mp3";
+    const trackKey3 = "https://disk.yandex.com/d/Qb_HBohs2k5iEg|||/Цикл/Том 1/глава1.mp3";
+    const baseTs = Date.now() - 100000;
     const sync1 = await invoke(gw.handler, "progress/sync", "POST", {
       token: mamaToken,
       body: {
@@ -300,45 +319,138 @@ test("Cloud Function end-to-end flow: admin OAuth, invites, PIN auth, lockout, p
             title: "01.mp3",
             duration: 600,
             position: 120,
-            lastPlayedAt: 1000,
+            lastPlayedAt: baseTs + 1000,
             inHistory: true,
             completed: true,
-            completedAt: 2000,
+            completedAt: baseTs + 2000,
             completedBy: "manual",
             bookPath: "/Книга 1",
             folderName: "Книга 1",
           },
+          [trackKey2]: {
+            url: trackKey2,
+            title: "02.mp3",
+            duration: 600,
+            position: 180,
+            lastPlayedAt: baseTs + 1500,
+            inHistory: true,
+            completed: false,
+            bookPath: "/Книга 1",
+            folderName: "Книга 1",
+          },
         },
-        bookmarks: { [trackKey]: [{ t: 55, label: "00:55", createdAt: 1000 }] },
-        bookmarksMeta: { [trackKey]: 1000 },
+        bookmarks: { [trackKey]: [{ t: 55, label: "00:55", createdAt: baseTs + 1000 }] },
+        bookmarksMeta: { [trackKey]: baseTs + 1000 },
       },
     });
     assert.equal(sync1.statusCode, 200);
     assert.equal(sync1.data.progress.tracks[trackKey].completed, true);
+    assert.equal(sync1.data.progress.tracks[trackKey2].position, 180);
 
-    // Simulate another device clearing history while keeping completed=true OR older uncompleted sync
-    const sync2 = await invoke(gw.handler, "progress/sync", "POST", {
+    // Single-item delete on uncompleted trackKey2 (lastPlayedAt: 0, historyUpdatedAt: baseTs + 2000) must override server's baseTs + 1500
+    const syncDelOne = await invoke(gw.handler, "progress/sync", "POST", {
       token: mamaToken,
       body: {
+        tracks: {
+          [trackKey2]: {
+            url: trackKey2,
+            title: "02.mp3",
+            duration: 600,
+            position: 0,
+            lastPlayedAt: 0,
+            historyUpdatedAt: baseTs + 2000,
+            inHistory: false,
+            completed: false,
+            bookPath: "/Книга 1",
+            folderName: "Книга 1",
+          },
+        },
+      },
+    });
+    assert.equal(syncDelOne.statusCode, 200);
+    assert.equal(syncDelOne.data.progress.tracks[trackKey2].inHistory, false);
+    assert.equal(syncDelOne.data.progress.tracks[trackKey2].position, 0);
+
+    // Simulate keepalive unload sync (no custom headers, _sessionToken in body) clearing ALL history via historyClearedAt
+    // Notice completed track keeps lastPlayedAt=0 & completed=true, uncompleted track is omitted, and bookmarks are cleared
+    const sync2 = await invoke(gw.handler, "progress/sync", "POST", {
+      body: {
+        _sessionToken: mamaToken,
+        historyClearedAt: baseTs + 3000,
         tracks: {
           [trackKey]: {
             url: trackKey,
             title: "01.mp3",
             duration: 600,
             position: 0,
-            lastPlayedAt: 3000,
+            lastPlayedAt: 0,
+            historyUpdatedAt: baseTs + 3000,
             inHistory: false,
             completed: true,
-            completedAt: 2000,
+            completedAt: baseTs + 2000,
             completedBy: "manual",
             bookPath: "/Книга 1",
             folderName: "Книга 1",
           },
         },
+        bookmarks: {},
+        bookmarksMeta: { [trackKey]: baseTs + 3000 },
       },
     });
+    assert.equal(sync2.statusCode, 200);
+    assert.equal(sync2.data.progress.historyClearedAt, baseTs + 3000);
     assert.equal(sync2.data.progress.tracks[trackKey].inHistory, false);
+    assert.equal(sync2.data.progress.tracks[trackKey].position, 0);
     assert.equal(sync2.data.progress.tracks[trackKey].completed, true);
+    assert.equal(sync2.data.progress.tracks[trackKey2], undefined);
+    assert.equal(sync2.data.progress.bookmarks[trackKey], undefined);
+    assert.equal(sync2.data.progress._sessionToken, undefined);
+
+    // Stale offline device pushing pre-clear history (lastPlayedAt <= historyClearedAt) must NOT resurrect old history
+    const syncStale = await invoke(gw.handler, "progress/sync", "POST", {
+      token: mamaToken,
+      body: {
+        tracks: {
+          [trackKey3]: {
+            url: trackKey3,
+            title: "глава1.mp3",
+            duration: 500,
+            position: 99,
+            lastPlayedAt: baseTs + 2500,
+            inHistory: true,
+            completed: false,
+            bookPath: "/Цикл/Том 1",
+            folderName: "Том 1",
+          },
+        },
+      },
+    });
+    assert.equal(syncStale.statusCode, 200);
+    assert.equal(syncStale.data.progress.tracks[trackKey3], undefined);
+
+    // New playback strictly AFTER historyClearedAt persists normally
+    const syncAfterClear = await invoke(gw.handler, "progress/sync", "POST", {
+      token: mamaToken,
+      body: {
+        tracks: {
+          [trackKey3]: {
+            url: trackKey3,
+            title: "глава1.mp3",
+            duration: 500,
+            position: 95,
+            lastPlayedAt: baseTs + 4000,
+            historyUpdatedAt: baseTs + 4000,
+            inHistory: true,
+            completed: false,
+            bookPath: "/Цикл/Том 1",
+            folderName: "Том 1",
+          },
+        },
+      },
+    });
+    assert.equal(syncAfterClear.statusCode, 200);
+    assert.equal(syncAfterClear.data.progress.tracks[trackKey3].inHistory, true);
+    assert.equal(syncAfterClear.data.progress.tracks[trackKey3].position, 95);
 
     // 7. Catalog cache rebuild & public proxy WITHOUT Authorization header + windows-1251 decoding
     const rebuild = await invoke(gw.handler, "admin/cache-rebuild", "POST", { token: adminToken });
